@@ -1,0 +1,35 @@
+project:
+  slug: docsmith-authoring-guide
+  template: ../../templates/academic_thesis
+
+metadata:
+  title: Docsmith Authoring Guide
+  subtitle: A practical example document for the current MVP
+  author: Docsmith Contributors
+  date: "2026-03-16"
+
+document:
+  input_root: sections
+  include:
+    - 00_existing_content.md
+    - 01_basic_markdown.md
+    - 02_images_and_tables.md
+    - 03_citations.md
+    - 04_appendices.md
+    - 05_versioning_behavior.md
+    - 06_docsmith_authoring_tips.md
+
+citations:
+  bibliography: references.bib
+  csl: csl/apa.csl
+
+output:
+  directory: output
+  basename: docsmith_authoring_guide
+  formats:
+    - pdf
+
+versioning:
+  strategy: semver
+  initial_version: 0.1.0
+  include_git_hash: false

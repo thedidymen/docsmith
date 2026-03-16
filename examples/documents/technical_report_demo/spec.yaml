@@ -1,0 +1,33 @@
+project:
+  slug: technical-report-demo
+  template: ../../templates/technical_report
+
+metadata:
+  title: Docsmith Technical Report Demo
+  subtitle: A compact shared-template showcase
+  author: Docsmith Contributors
+  date: "2026-03-16"
+
+document:
+  input_root: sections
+  include:
+    - 00_overview.md
+    - 10_workflow.md
+    - 20_feature_matrix.md
+    - 30_citations.md
+    - 90_appendix.md
+
+citations:
+  bibliography: references.bib
+  csl: csl/apa.csl
+
+output:
+  directory: output
+  basename: technical_report_demo
+  formats:
+    - pdf
+
+versioning:
+  strategy: semver
+  initial_version: 0.1.0
+  include_git_hash: false

@@ -1,0 +1,262 @@
+"""Configuration loading and validation for Docsmith."""
+
+from __future__ import annotations
+
+from dataclasses import MISSING, dataclass, field, fields
+from pathlib import Path
+from typing import Any, Literal, get_args, get_origin, get_type_hints
+
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - exercised only in bare environments.
+    yaml = None
+
+try:
+    from pydantic import BaseModel, ConfigDict, Field
+except ModuleNotFoundError:  # pragma: no cover - exercised only in bare environments.
+    class BaseModel:
+        """Minimal fallback for environments without Pydantic."""
+
+        def __init_subclass__(cls, **kwargs: Any) -> None:
+            super().__init_subclass__(**kwargs)
+            dataclass(cls)
+
+        @classmethod
+        def model_validate(cls, data: dict[str, Any]) -> "BaseModel":
+            values: dict[str, Any] = {}
+            type_hints = get_type_hints(cls)
+            for item in fields(cls):
+                if item.name in data:
+                    raw_value = data[item.name]
+                elif item.default is not MISSING:
+                    raw_value = item.default
+                elif item.default_factory is not MISSING:  # type: ignore[attr-defined]
+                    raw_value = item.default_factory()  # type: ignore[misc]
+                else:
+                    raise ValueError(f"Missing required field: {item.name}")
+
+                field_type = type_hints.get(item.name, item.type)
+                origin = get_origin(field_type)
+                if origin is Literal:
+                    allowed_values = get_args(field_type)
+                    if raw_value not in allowed_values:
+                        raise ValueError(
+                            f"Invalid value for {item.name}: {raw_value!r}. "
+                            f"Expected one of {allowed_values!r}."
+                        )
+                    values[item.name] = raw_value
+                elif origin is list and isinstance(raw_value, list):
+                    inner_type = get_args(field_type)[0]
+                    if get_origin(inner_type) is Literal:
+                        allowed_values = get_args(inner_type)
+                        invalid_values = [
+                            value for value in raw_value if value not in allowed_values
+                        ]
+                        if invalid_values:
+                            raise ValueError(
+                                f"Invalid values for {item.name}: {invalid_values!r}. "
+                                f"Expected values from {allowed_values!r}."
+                            )
+                    values[item.name] = raw_value
+                elif hasattr(field_type, "model_validate") and isinstance(raw_value, dict):
+                    values[item.name] = field_type.model_validate(raw_value)
+                else:
+                    values[item.name] = raw_value
+
+            return cls(**values)
+
+    def Field(  # type: ignore[misc]
+        default: Any = MISSING,
+        *,
+        default_factory: Any = MISSING,
+    ) -> Any:
+        """Minimal fallback for Pydantic's Field helper."""
+        if default_factory is not MISSING:
+            return field(default_factory=default_factory)
+        if default is not MISSING:
+            return field(default=default)
+        return field()
+
+    ConfigDict = dict  # type: ignore[assignment]
+
+
+class ProjectConfig(BaseModel):
+    """Top-level project settings."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    slug: str = "document"
+    template: str = "templates/academic_thesis"
+
+
+class MetadataConfig(BaseModel):
+    """Core document metadata used by templates and output naming."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    title: str = "Untitled Document"
+    subtitle: str | None = None
+    author: str = "Unknown Author"
+    date: str | None = None
+
+
+class DocumentConfig(BaseModel):
+    """Document source configuration."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    input_root: str = "sections"
+    include: list[str] = Field(default_factory=list)
+    appendix_marker: str = "<!-- APPENDIX -->"
+
+
+class CitationsConfig(BaseModel):
+    """Citation-related configuration for Pandoc."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    bibliography: str | None = None
+    csl: str | None = None
+
+
+class OutputConfig(BaseModel):
+    """Output configuration."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    directory: str = "output"
+    basename: str = "document"
+    formats: list[Literal["pdf", "docx"]] = Field(default_factory=lambda: ["pdf"])
+
+
+class VersioningConfig(BaseModel):
+    """Output versioning configuration."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["semver", "timestamp"] = "semver"
+    initial_version: str = "0.1.0"
+    include_git_hash: bool = True
+
+
+class DocsmithConfig(BaseModel):
+    """Validated Docsmith document specification."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    project: ProjectConfig = Field(default_factory=ProjectConfig)
+    metadata: MetadataConfig = Field(default_factory=MetadataConfig)
+    document: DocumentConfig = Field(default_factory=DocumentConfig)
+    citations: CitationsConfig = Field(default_factory=CitationsConfig)
+    output: OutputConfig = Field(default_factory=OutputConfig)
+    versioning: VersioningConfig = Field(default_factory=VersioningConfig)
+
+
+def _parse_scalar(value: str) -> Any:
+    """Parse a minimal YAML scalar."""
+    lowered = value.lower()
+    if lowered in {"true", "false"}:
+        return lowered == "true"
+
+    if (value.startswith('"') and value.endswith('"')) or (
+        value.startswith("'") and value.endswith("'")
+    ):
+        return value[1:-1]
+
+    try:
+        if "." in value:
+            return float(value)
+        return int(value)
+    except ValueError:
+        return value
+
+
+def _simple_yaml_load(text: str) -> dict[str, Any]:
+    """Parse a restricted YAML subset used by the MVP example files."""
+    root: dict[str, Any] = {}
+    stack: list[tuple[int, dict[str, Any] | list[Any]]] = [(-1, root)]
+    pending_key: str | None = None
+
+    for raw_line in text.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        line = raw_line.strip()
+
+        while indent <= stack[-1][0] and len(stack) > 1:
+            stack.pop()
+
+        current = stack[-1][1]
+
+        if line.startswith("- "):
+            if not isinstance(current, list):
+                if not isinstance(stack[-2][1], dict) or pending_key is None:
+                    raise ValueError("Invalid YAML structure")
+                current_list: list[Any] = []
+                stack[-2][1][pending_key] = current_list
+                stack[-1] = (stack[-1][0], current_list)
+                current = current_list
+
+            current.append(_parse_scalar(line[2:].strip()))
+            continue
+
+        key, _, value = line.partition(":")
+        key = key.strip()
+        value = value.strip()
+
+        if not isinstance(current, dict):
+            raise ValueError("Invalid YAML mapping structure")
+
+        if value == "":
+            current[key] = {}
+            pending_key = key
+            stack.append((indent, current[key]))
+            continue
+
+        current[key] = _parse_scalar(value)
+        pending_key = key
+
+    return root
+
+
+def load_document_config(spec_path: Path) -> DocsmithConfig:
+    """Load and validate a document spec from YAML."""
+    if not spec_path.exists():
+        raise FileNotFoundError(f"Spec file not found: {spec_path}")
+
+    with spec_path.open("r", encoding="utf-8") as handle:
+        raw_text = handle.read()
+
+    if yaml is not None:
+        raw_config: dict[str, Any] = yaml.safe_load(raw_text) or {}
+    else:
+        raw_config = _simple_yaml_load(raw_text)
+
+    if "template" in raw_config:
+        project = raw_config.setdefault("project", {})
+        if isinstance(project, dict) and "template" not in project:
+            project["template"] = raw_config.pop("template")
+
+    project = raw_config.get("project")
+    if isinstance(project, dict):
+        template = project.get("template")
+        if isinstance(template, dict) and "path" in template:
+            project["template"] = template["path"]
+
+    versioning = raw_config.get("versioning")
+    if (
+        isinstance(versioning, dict)
+        and "current_version" in versioning
+        and "initial_version" not in versioning
+    ):
+        versioning["initial_version"] = versioning.pop("current_version")
+
+    return DocsmithConfig.model_validate(raw_config)

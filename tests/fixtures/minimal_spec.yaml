@@ -1,0 +1,27 @@
+metadata:
+  title: Fixture Example
+  subtitle: MVP Config Fixture
+  author: Example Author
+  date: "2026-03-16"
+
+document:
+  input_root: sections
+  include:
+    - 00_intro.md
+    - 10_body.md
+
+citations:
+  bibliography: references.bib
+  csl: csl/apa.csl
+
+output:
+  directory: build
+  basename: fixture_document
+  formats:
+    - pdf
+    - docx
+
+versioning:
+  strategy: semver
+  initial_version: "0.2.0"
+  include_git_hash: false

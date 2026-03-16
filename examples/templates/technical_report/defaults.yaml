@@ -1,0 +1,9 @@
+from: markdown
+pdf-engine: xelatex
+toc: true
+number-sections: true
+standalone: true
+variables:
+  papersize: a4
+  geometry:
+    - margin=2.2cm

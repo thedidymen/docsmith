@@ -1,0 +1,14 @@
+from: markdown+raw_tex
+pdf-engine: xelatex
+toc: true
+number-sections: true
+citeproc: true
+standalone: true
+variables:
+  documentclass: article
+  papersize: a4
+  geometry:
+    - margin=2.5cm
+  colorlinks: true
+  linkcolor: black
+  urlcolor: blue

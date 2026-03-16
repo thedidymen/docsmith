@@ -1,0 +1,2 @@
+"""Core document assembly components."""
+

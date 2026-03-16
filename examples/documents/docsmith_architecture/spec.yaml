@@ -1,0 +1,32 @@
+project:
+  slug: docsmith-architecture
+  template: ../../templates/technical_report
+
+metadata:
+  title: Docsmith Architecture Report
+  subtitle: Lightweight architecture documentation generated with Docsmith
+  author: Docsmith Contributors
+  date: "2026-03-16"
+
+document:
+  input_root: sections
+  include:
+    - 00_scope_and_goals.md
+    - 01_system_overview.md
+    - 02_major_components.md
+    - 03_build_pipeline.md
+    - 04_configuration_model.md
+    - 05_versioning_and_outputs.md
+    - 06_limitations_and_future_improvements.md
+    - 90_appendix.md
+
+output:
+  directory: output
+  basename: docsmith_architecture
+  formats:
+    - pdf
+
+versioning:
+  strategy: semver
+  initial_version: 0.1.0
+  include_git_hash: false
