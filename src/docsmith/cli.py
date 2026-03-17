@@ -9,9 +9,15 @@ import typer
 
 from docsmith.core.builder import build_document
 from docsmith.core.validation import format_validation_report, validate_document
+from docsmith.scaffold import (
+    ScaffoldError,
+    initialize_document_scaffold,
+    initialize_template_scaffold,
+)
 from docsmith.templates.registry import list_templates
 
-app = typer.Typer(help="Build structured Markdown documents into PDF and DOCX.")
+app = typer.Typer(help="Build structured Markdown documents into versioned outputs.")
+init_app = typer.Typer(help="Create starter document projects and template packs.")
 
 
 @app.command()
@@ -64,6 +70,39 @@ def templates() -> None:
     """List template directories under the current working tree."""
     for template_name in list_templates(Path.cwd()):
         typer.echo(template_name)
+
+
+@init_app.command("document")
+def init_document(target_dir: Path) -> None:
+    """Create a starter document project."""
+    try:
+        result = initialize_document_scaffold(target_dir)
+    except ScaffoldError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Created {result.kind} scaffold at {result.target_dir}")
+    typer.echo("Generated files:")
+    for path in result.created_paths:
+        typer.echo(f"- {path.relative_to(result.target_dir)}")
+
+
+@init_app.command("template")
+def init_template(target_dir: Path) -> None:
+    """Create a starter template pack."""
+    try:
+        result = initialize_template_scaffold(target_dir)
+    except ScaffoldError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Created {result.kind} scaffold at {result.target_dir}")
+    typer.echo("Generated files:")
+    for path in result.created_paths:
+        typer.echo(f"- {path.relative_to(result.target_dir)}")
+
+
+app.add_typer(init_app, name="init")
 
 
 if __name__ == "__main__":

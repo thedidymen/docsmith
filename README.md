@@ -1,6 +1,22 @@
 # Docsmith
 
-Docsmith is a Python CLI for building structured Markdown document directories into versioned PDF files using Pandoc and document-local LaTeX templates.
+Docsmith is a Python CLI for building structured Markdown document directories into versioned PDF files using Pandoc and document-local LaTeX templates. It can also scaffold neutral starter document projects and template packs with `docsmith init`.
+
+## Project Direction
+
+Docsmith is a neutral document build engine, not a template pack. Templates live in document repositories or external template packs, while the engine focuses on reproducible document workflows, build orchestration, validation, and version-aware outputs.
+
+## Current Architectural Focus
+
+The current direction is to evolve Docsmith from a PDF-first feature set into a clearer structured document build system with explicit document concepts. During the `0.x` phase, the document and config model may still evolve as those concepts are formalized, but those changes should remain documented and aligned with the implemented behavior.
+
+## Design Principles
+
+- Markdown files are for document content, not layout control.
+- Metadata carries document data and structural intent used during rendering.
+- Templates own layout, presentation, and formatting.
+- The engine is the glue that resolves structure, metadata, assembly, and rendering.
+- Do not rely on raw LaTeX in Markdown files for title pages or layout hacks; prefer metadata and template changes instead.
 
 ## Current MVP
 
@@ -127,6 +143,18 @@ pip install -e ".[dev]"
 
 ## Quickstart
 
+Create a new document project scaffold:
+
+```bash
+docsmith init document my-document
+```
+
+Create a new template pack scaffold:
+
+```bash
+docsmith init template my-template
+```
+
 List shared example templates:
 
 ```bash
@@ -151,6 +179,180 @@ Run tests:
 ```bash
 pytest
 ```
+
+## Initialization
+
+`docsmith init` creates neutral starter directories so new projects do not need to copy files by hand.
+
+### `docsmith init document <target_dir>`
+
+Creates a minimal document project with:
+
+- `spec.yaml`
+- `references.bib`
+- `csl/apa.csl`
+- `assets/images/`
+- `sections/00_intro.md`
+- `sections/01_body.md`
+- `sections/30_appendix.md`
+- `README.md`
+
+The generated `spec.yaml` uses:
+
+- a local relative `project.template` path
+- PDF as the only output format
+- semantic versioning with `0.1.0`
+- explicit `document.include` ordering
+
+The scaffold is intentionally neutral. It does not bundle an engine-owned template into the document project. Create a local template pack separately and point `project.template` at it.
+
+Example:
+
+```bash
+docsmith init document reports/quarterly-update
+```
+
+### `docsmith init template <target_dir>`
+
+Creates a minimal PDF template scaffold with:
+
+- `template.tex`
+- `defaults.yaml`
+- `metadata.yaml`
+- `README.md`
+- `partials/titlepage.tex`
+- `partials/before-body.tex`
+- `partials/after-body.tex`
+
+This scaffold is a generic starting point for a repository-local or external template pack.
+
+Example:
+
+```bash
+docsmith init template templates/default
+```
+
+## Metadata
+
+`spec.yaml` may define arbitrary top-level `metadata` fields. Docsmith passes that mapping through to Pandoc via `build/runtime-metadata.yaml`, so templates can consume any field exposed as a Pandoc variable.
+
+Example:
+
+```yaml
+metadata:
+  title: My Document
+  author: Jane Doe
+  student_number: "123456"
+  program:
+    name: Example Programme
+    track: Applied Research
+```
+
+Template rendering stays template-defined. For example, a LaTeX template may use `$title$`, `$author$`, or `$student_number$` without engine changes. Docsmith also adds runtime fields such as `version` and `git_hash`; if those keys collide with user metadata, the runtime values win.
+
+## Document Zones
+
+Docsmith now supports a minimal explicit document zone model in `document:`:
+
+```yaml
+document:
+  front_matter:
+    - 00_preface.md
+  main_matter:
+    - 10_body.md
+  back_matter:
+    - 90_notes.md
+```
+
+Zone order is always:
+
+- `front_matter`
+- `main_matter`
+- `back_matter`
+
+Backward compatibility:
+
+- existing documents that use `document.include` still work
+- if no zones are configured, Docsmith continues to use `document.include` or fallback discovery
+- if both zones and `document.include` are present, zones take precedence
+
+This milestone only introduces structural zones. It does not add table-of-contents placement, bibliography placement, or new appendix behavior.
+
+## Appendices
+
+Appendices are now a first-class structural concept distinct from generic back matter:
+
+```yaml
+document:
+  main_matter:
+    - 10_body.md
+  back_matter:
+    - 20_notes.md
+  appendices:
+    - 30_appendix_a.md
+    - 31_appendix_b.md
+```
+
+Assembly order is:
+
+- `front_matter`
+- `main_matter`
+- `back_matter`
+- `appendices`
+
+For explicit appendices, Docsmith inserts the appendix boundary during assembly so document repositories no longer need to model appendices as generic back matter. Existing documents without `document.appendices` continue to work, including older marker-based appendix content during the transition.
+
+This milestone does not add bibliography placement or table-of-contents placement.
+
+## Bibliography Placement
+
+Bibliography placement is now a first-class structural concept:
+
+```yaml
+document:
+  back_matter:
+    - 20_notes.md
+  bibliography:
+    enabled: true
+    title: Literature
+    zone: back_matter
+
+citations:
+  bibliography: references.bib
+  csl: csl/apa.csl
+```
+
+When enabled, Docsmith emits a Pandoc-native bibliography placeholder in the configured zone, so a manual literature-list Markdown chapter is no longer required. The current structural placement supports `back_matter`.
+
+Backward compatibility:
+
+- documents without `document.bibliography` continue to work
+- existing manual literature-list Markdown sections still work during transition
+
+This milestone is about bibliography placement only. Table-of-contents placement remains a future milestone.
+
+## Table Of Contents Placement
+
+TOC placement is now a first-class structural concept:
+
+```yaml
+document:
+  front_matter:
+    - 00_preface.md
+  toc:
+    enabled: true
+    title: Inhoudsopgave
+    zone: front_matter
+```
+
+When enabled, Docsmith inserts the TOC block in the configured zone so a manual TOC section is no longer required. The current structural placement supports `front_matter`.
+
+Backward compatibility:
+
+- documents without `document.toc` continue to work
+- existing manual TOC sections still work during transition
+
+This closes the main structural workaround loop for the current document workflow: metadata, zones, appendices, bibliography placement, and TOC placement are now explicit engine concepts.
 
 ## Example Document
 

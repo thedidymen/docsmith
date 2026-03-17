@@ -2,6 +2,17 @@
 
 Docsmith is a neutral document build engine that builds structured Markdown documents into versioned outputs.
 
+Repository Role:
+- Docsmith is the engine layer for structured document builds
+- this repository should define reusable build concepts and orchestration, not organization-specific document products
+- templates, branding, and document programs belong in document repositories or external template packs
+
+Development Philosophy:
+- evolve the engine through explicit document concepts rather than ad hoc one-off features
+- prefer small, documented schema and architecture steps over big-bang redesigns
+- keep engine behavior inspectable and predictable for both document authors and template authors
+- avoid hidden coupling between engine internals and template implementation details
+
 Current implemented output:
 - PDF
 
@@ -38,6 +49,12 @@ Architecture rules:
 - prefer Pydantic for config models
 - add tests for important behavior
 - write clear docstrings and readable code
+- when extending document behavior, prefer explicit concepts such as metadata, document zones, appendices, bibliography placement, and template contracts
+- structural features should be introduced incrementally with clear config and pipeline changes
+- do not rely on implicit template behavior when an engine-level concept should be modeled explicitly
+- avoid engine-template coupling that only works for one example template family
+- do not introduce LaTeX into markdown documents for layout purposes
+- prefer metadata, explicit document structure, or template changes over markdown-level LaTeX layout hacks
 
 Current architecture assumptions:
 - `project.template` resolves to a filesystem path, typically relative to the document root
@@ -65,3 +82,4 @@ Working style:
 - then implement an MVP
 - keep changes small and coherent
 - do not invent features beyond the stated requirements unless clearly useful
+- when evolving the document model, document the contract change in README and project status alongside the code change

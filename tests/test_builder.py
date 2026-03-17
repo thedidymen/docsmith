@@ -1,5 +1,9 @@
 from pathlib import Path
+import shutil
 from unittest.mock import patch
+
+import pytest
+import yaml
 
 from docsmith.core.builder import build_document
 from docsmith.versioning.state import load_build_state
@@ -244,3 +248,175 @@ def test_build_document_writes_intermediate_files_and_runtime_metadata(tmp_path:
     assert "title: Example Document" in metadata
     assert "version: 0.1.0" in metadata
     assert "git_hash: abc1234" in metadata
+
+
+def test_build_document_merges_user_metadata_into_runtime_metadata(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    _create_template(document_root)
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Example Document",
+                "  author: Example Author",
+                '  student_number: "123456"',
+                "  reviewer:",
+                "    name: Dr. Example",
+                "  version: user-defined-version",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "output:",
+                "  directory: output",
+                "  basename: example_document",
+                "versioning:",
+                "  strategy: semver",
+                "  initial_version: 0.1.0",
+                "  include_git_hash: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with (
+        patch("docsmith.core.builder.render_pdf"),
+        patch("docsmith.core.builder.get_git_short_hash", return_value="abc1234"),
+    ):
+        result = build_document(document_root)
+
+    metadata = yaml.safe_load(result.metadata_path.read_text(encoding="utf-8"))
+    assert metadata["title"] == "Example Document"
+    assert metadata["student_number"] == "123456"
+    assert metadata["reviewer"]["name"] == "Dr. Example"
+    assert metadata["version"] == "0.1.0"
+    assert metadata["git_hash"] == "abc1234"
+
+
+def test_build_document_passes_extensible_metadata_to_renderer(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    _create_template(document_root)
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Integration Metadata Example",
+                "  author: Example Author",
+                '  student_number: "123456"',
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "output:",
+                "  directory: output",
+                "  basename: example_document",
+                "versioning:",
+                "  strategy: semver",
+                "  initial_version: 0.1.0",
+                "  include_git_hash: false",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_render_pdf(input_file: Path, output_file: Path, **kwargs: object) -> Path:
+        metadata_file = kwargs["metadata_file"]
+        metadata = yaml.safe_load(Path(metadata_file).read_text(encoding="utf-8"))
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.write_text(
+            f'{metadata["title"]}\n{metadata["student_number"]}\n',
+            encoding="utf-8",
+        )
+        return output_file
+
+    with (
+        patch("docsmith.core.builder.render_pdf", side_effect=fake_render_pdf),
+        patch("docsmith.core.builder.get_git_short_hash", return_value=None),
+    ):
+        result = build_document(document_root)
+
+    output_content = result.output_path.read_text(encoding="utf-8")
+    assert "Integration Metadata Example" in output_content
+    assert "123456" in output_content
+
+
+def test_build_document_allows_real_template_to_consume_arbitrary_metadata(
+    tmp_path: Path,
+) -> None:
+    if shutil.which("pandoc") is None or shutil.which("xelatex") is None:
+        pytest.skip("pandoc and xelatex are required for the real metadata integration test")
+
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    template_root = document_root / "templates" / "metadata_probe"
+    sections_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+
+    (sections_dir / "00_intro.md").write_text("# Intro\n\nRendered through a real template.\n", encoding="utf-8")
+    (template_root / "defaults.yaml").write_text(
+        "\n".join(
+            [
+                "from: markdown",
+                "pdf-engine: xelatex",
+                "standalone: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (template_root / "template.tex").write_text(
+        "\n".join(
+            [
+                r"\documentclass{article}",
+                r"\def\studentnumber{$student_number$}",
+                r"\def\expectedstudentnumber{123456}",
+                r"\ifx\studentnumber\expectedstudentnumber\else",
+                r"\errmessage{student_number metadata was not passed to the template}",
+                r"\fi",
+                r"\begin{document}",
+                r"Student: \studentnumber",
+                r"",
+                r"$body$",
+                r"\end{document}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/metadata_probe",
+                "metadata:",
+                "  title: Real Metadata Integration Example",
+                "  author: Example Author",
+                '  student_number: "123456"',
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "output:",
+                "  directory: output",
+                "  basename: metadata_integration",
+                "versioning:",
+                "  strategy: semver",
+                "  initial_version: 0.1.0",
+                "  include_git_hash: false",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_document(document_root)
+
+    assert result.output_path.exists()
+    assert result.output_path.suffix == ".pdf"

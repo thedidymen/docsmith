@@ -70,6 +70,9 @@ def build_pandoc_command(
     if metadata_file is not None:
         command.extend(["--metadata-file", str(metadata_file)])
 
+    if config.document.toc.enabled:
+        command.extend(["-M", "toc=false"])
+
     if config.citations.bibliography:
         bibliography_path = resolve_document_path(
             config.citations.bibliography,

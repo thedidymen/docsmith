@@ -126,6 +126,37 @@ def _validate_citation_assets(document_root: Path, config: DocsmithConfig) -> st
     return f"Found {len(checked_paths)} citation asset(s)"
 
 
+def _validate_bibliography_placement(config: DocsmithConfig) -> str:
+    """Validate structural bibliography placement settings."""
+    if not config.document.bibliography.enabled:
+        return "No structural bibliography placement configured"
+
+    if config.document.bibliography.zone != "back_matter":
+        raise ValueError(
+            "Document bibliography placement currently supports only `back_matter`."
+        )
+    if not config.citations.bibliography:
+        raise ValueError(
+            "Document bibliography placement requires `citations.bibliography` to be configured."
+        )
+
+    return (
+        "Structural bibliography placement enabled "
+        f"for zone `{config.document.bibliography.zone}`"
+    )
+
+
+def _validate_toc_placement(config: DocsmithConfig) -> str:
+    """Validate structural TOC placement settings."""
+    if not config.document.toc.enabled:
+        return "No structural TOC placement configured"
+
+    if config.document.toc.zone != "front_matter":
+        raise ValueError("Document TOC placement currently supports only `front_matter`.")
+
+    return f"Structural TOC placement enabled for zone `{config.document.toc.zone}`"
+
+
 def _validate_output_directory(document_root: Path, config: DocsmithConfig) -> str:
     """Validate output directory resolution and creatability."""
     output_dir = resolve_document_path(config.output.directory, document_root)
@@ -203,6 +234,18 @@ def validate_document(document_root: Path) -> ValidationReport:
         _run_check(
             "bibliography and CSL path existence",
             lambda: _validate_citation_assets(document_root, config),
+        )
+    )
+    checks.append(
+        _run_check(
+            "structural bibliography placement",
+            lambda: _validate_bibliography_placement(config),
+        )
+    )
+    checks.append(
+        _run_check(
+            "structural TOC placement",
+            lambda: _validate_toc_placement(config),
         )
     )
     checks.append(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import MISSING, dataclass, field, fields
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal, get_args, get_origin, get_type_hints
 
@@ -90,16 +91,14 @@ class ProjectConfig(BaseModel):
     template: str = "templates/academic_thesis"
 
 
-class MetadataConfig(BaseModel):
-    """Core document metadata used by templates and output naming."""
-
-    if "ConfigDict" in globals():
-        model_config = ConfigDict(extra="forbid")
-
-    title: str = "Untitled Document"
-    subtitle: str | None = None
-    author: str = "Unknown Author"
-    date: str | None = None
+def default_metadata() -> dict[str, Any]:
+    """Return backwards-compatible default metadata."""
+    return {
+        "title": "Untitled Document",
+        "subtitle": None,
+        "author": "Unknown Author",
+        "date": None,
+    }
 
 
 class DocumentConfig(BaseModel):
@@ -110,7 +109,37 @@ class DocumentConfig(BaseModel):
 
     input_root: str = "sections"
     include: list[str] = Field(default_factory=list)
+    front_matter: list[str] = Field(default_factory=list)
+    main_matter: list[str] = Field(default_factory=list)
+    back_matter: list[str] = Field(default_factory=list)
+    appendices: list[str] = Field(default_factory=list)
+    bibliography: "DocumentBibliographyConfig" = Field(
+        default_factory=lambda: DocumentBibliographyConfig()
+    )
+    toc: "DocumentTocConfig" = Field(default_factory=lambda: DocumentTocConfig())
     appendix_marker: str = "<!-- APPENDIX -->"
+
+
+class DocumentBibliographyConfig(BaseModel):
+    """Bibliography placement configuration."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    title: str = "Bibliography"
+    zone: str = "back_matter"
+
+
+class DocumentTocConfig(BaseModel):
+    """Table-of-contents placement configuration."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    title: str = "Contents"
+    zone: str = "front_matter"
 
 
 class CitationsConfig(BaseModel):
@@ -152,7 +181,7 @@ class DocsmithConfig(BaseModel):
         model_config = ConfigDict(extra="forbid")
 
     project: ProjectConfig = Field(default_factory=ProjectConfig)
-    metadata: MetadataConfig = Field(default_factory=MetadataConfig)
+    metadata: dict[str, Any] = Field(default_factory=default_metadata)
     document: DocumentConfig = Field(default_factory=DocumentConfig)
     citations: CitationsConfig = Field(default_factory=CitationsConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
@@ -239,6 +268,10 @@ def load_document_config(spec_path: Path) -> DocsmithConfig:
         raw_config: dict[str, Any] = yaml.safe_load(raw_text) or {}
     else:
         raw_config = _simple_yaml_load(raw_text)
+
+    metadata = raw_config.get("metadata")
+    if metadata is not None and not isinstance(metadata, Mapping):
+        raise TypeError("`metadata` must be a mapping in spec.yaml")
 
     if "template" in raw_config:
         project = raw_config.setdefault("project", {})

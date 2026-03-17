@@ -2,6 +2,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from unittest.mock import patch
 import os
+import yaml
 
 from docsmith.config import load_document_config
 from docsmith.renderer.metadata import write_runtime_metadata
@@ -66,6 +67,49 @@ def test_build_pandoc_command_includes_bibliography_and_csl() -> None:
     assert str(Path("tests/fixtures/references.bib").resolve()) in command
     assert "--csl" in command
     assert str(Path("tests/fixtures/csl/apa.csl").resolve()) in command
+
+
+def test_build_pandoc_command_disables_template_level_toc_for_structural_toc(
+    tmp_path: Path,
+) -> None:
+    template_root = tmp_path / "templates" / "technical_report"
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text(
+        "\\documentclass{article}\n\\begin{document}\n$body$\n\\end{document}\n",
+        encoding="utf-8",
+    )
+    (template_root / "defaults.yaml").write_text(
+        "from: markdown\npdf-engine: xelatex\ntoc: true\n",
+        encoding="utf-8",
+    )
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: TOC Command Example",
+                "document:",
+                "  toc:",
+                "    enabled: true",
+                "    zone: front_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(spec_path)
+
+    command = build_pandoc_command(
+        Path("input.md"),
+        Path("output.pdf"),
+        document_root=tmp_path,
+        config=config,
+        template_name="templates/technical_report",
+    )
+
+    assert "-M" in command
+    assert "toc=false" in command
 
 
 def test_render_pdf_invokes_subprocess_with_document_local_template(tmp_path: Path) -> None:
@@ -209,8 +253,11 @@ def test_render_pdf_raises_actionable_message_for_missing_xelatex_in_stderr(
 def test_write_runtime_metadata_serializes_special_characters_safely(tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
     config = load_document_config(Path("examples/documents/technical_report_demo/spec.yaml"))
-    config.metadata.title = 'Example: "Quoted"'
-    config.metadata.subtitle = "Line one\nLine two"
+    config.metadata["title"] = 'Example: "Quoted"'
+    config.metadata["subtitle"] = "Line one\nLine two"
+    config.metadata["student_number"] = "123456"
+    config.metadata["reviewer"] = {"name": "Dr. Example"}
+    config.metadata["version"] = "user-version"
 
     output_path = write_runtime_metadata(
         build_dir,
@@ -220,7 +267,10 @@ def test_write_runtime_metadata_serializes_special_characters_safely(tmp_path: P
         git_hash="abc1234",
     )
 
-    content = output_path.read_text(encoding="utf-8")
-    assert "title:" in content
-    assert "Line one" in content
-    assert "git_hash: abc1234" in content
+    content = yaml.safe_load(output_path.read_text(encoding="utf-8"))
+    assert content["title"] == 'Example: "Quoted"'
+    assert content["subtitle"] == "Line one\nLine two"
+    assert content["student_number"] == "123456"
+    assert content["reviewer"]["name"] == "Dr. Example"
+    assert content["version"] == "0.1.0"
+    assert content["git_hash"] == "abc1234"

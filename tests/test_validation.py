@@ -22,7 +22,7 @@ def test_validate_document_reports_success_for_example() -> None:
         report = validate_document(Path("examples/documents/technical_report_demo"))
 
     assert report.ok is True
-    assert len(report.checks) == 7
+    assert len(report.checks) == 9
     assert all(check.ok for check in report.checks)
 
 
@@ -178,3 +178,232 @@ def test_validate_document_reports_missing_pdf_dependencies(tmp_path: Path) -> N
     assert dependency_check.ok is False
     assert "pandoc" in dependency_check.detail
     assert "xelatex" in dependency_check.detail
+
+
+def test_validate_document_reports_non_mapping_metadata(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  - invalid",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = validate_document(document_root)
+
+    assert report.ok is False
+    spec_check = next(check for check in report.checks if check.label == "spec.yaml loading")
+    assert spec_check.ok is False
+    assert "metadata" in spec_check.detail
+
+
+def test_validate_document_reports_duplicate_zone_references(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Duplicate Zone Example",
+                "document:",
+                "  front_matter:",
+                "    - 10_body.md",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is False
+    markdown_check = next(
+        check for check in report.checks if check.label == "included markdown files existence"
+    )
+    assert "Duplicate markdown source across document zones" in markdown_check.detail
+
+
+def test_validate_document_reports_duplicate_appendix_references(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "30_appendix_a.md").write_text("# Appendix A\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Duplicate Appendix Example",
+                "document:",
+                "  back_matter:",
+                "    - 30_appendix_a.md",
+                "  appendices:",
+                "    - 30_appendix_a.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is False
+    markdown_check = next(
+        check for check in report.checks if check.label == "included markdown files existence"
+    )
+    assert "Duplicate markdown source across document zones" in markdown_check.detail
+
+
+def test_validate_document_accepts_structural_bibliography_in_back_matter(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text("# Body\n\nCite [@ref].\n", encoding="utf-8")
+    (document_root / "references.bib").write_text(
+        "@book{ref,\n  title = {Book}\n}\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Structural Bibliography Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  bibliography:",
+                "    enabled: true",
+                "    title: Literature",
+                "    zone: back_matter",
+                "citations:",
+                "  bibliography: references.bib",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is True
+
+
+def test_validate_document_rejects_structural_bibliography_without_bib_file(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Invalid Structural Bibliography Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  bibliography:",
+                "    enabled: true",
+                "    zone: back_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is False
+    bibliography_check = next(
+        check for check in report.checks if check.label == "structural bibliography placement"
+    )
+    assert "citations.bibliography" in bibliography_check.detail
+
+
+def test_validate_document_accepts_structural_toc_in_front_matter(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Structural TOC Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  toc:",
+                "    enabled: true",
+                "    title: Inhoudsopgave",
+                "    zone: front_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is True
+
+
+def test_validate_document_rejects_structural_toc_in_unsupported_zone(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Invalid Structural TOC Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  toc:",
+                "    enabled: true",
+                "    zone: back_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = validate_document(document_root)
+
+    assert report.ok is False
+    toc_check = next(check for check in report.checks if check.label == "structural TOC placement")
+    assert "front_matter" in toc_check.detail

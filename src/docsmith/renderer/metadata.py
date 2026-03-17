@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 from docsmith.config import DocsmithConfig
 
@@ -23,18 +25,10 @@ def build_runtime_metadata(
     *,
     version: str,
     git_hash: str | None = None,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Build the runtime metadata passed to Pandoc."""
-    metadata: dict[str, str] = {
-        "title": config.metadata.title,
-        "author": config.metadata.author,
-        "version": version,
-    }
-
-    if config.metadata.subtitle:
-        metadata["subtitle"] = config.metadata.subtitle
-    if config.metadata.date:
-        metadata["date"] = config.metadata.date
+    metadata: dict[str, Any] = dict(config.metadata)
+    metadata["version"] = version
     if git_hash:
         metadata["git_hash"] = git_hash
 
@@ -71,8 +65,14 @@ def write_runtime_metadata(
         return output_path
 
     lines = []
-    for key, value in metadata.items():
-        escaped_value = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-        lines.append(f'{key}: "{escaped_value}"')
-    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    output_path.write_text(
+        json.dumps(
+            metadata,
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     return output_path

@@ -123,3 +123,36 @@ def test_validate_command_returns_non_zero_for_invalid_document(tmp_path: Path) 
     assert result.exit_code == 1
     assert "[FAIL] included markdown files existence:" in result.stdout
     assert "Validation failed." in result.stdout
+
+
+def test_init_document_command_creates_scaffold(tmp_path: Path) -> None:
+    target_dir = tmp_path / "new-document"
+
+    result = runner.invoke(app, ["init", "document", str(target_dir)])
+
+    assert result.exit_code == 0
+    assert f"Created document scaffold at {target_dir.resolve()}" in result.stdout
+    assert "spec.yaml" in result.stdout
+    assert (target_dir / "spec.yaml").exists()
+
+
+def test_init_template_command_creates_scaffold(tmp_path: Path) -> None:
+    target_dir = tmp_path / "new-template"
+
+    result = runner.invoke(app, ["init", "template", str(target_dir)])
+
+    assert result.exit_code == 0
+    assert f"Created template scaffold at {target_dir.resolve()}" in result.stdout
+    assert "template.tex" in result.stdout
+    assert (target_dir / "template.tex").exists()
+
+
+def test_init_document_command_rejects_non_empty_target(tmp_path: Path) -> None:
+    target_dir = tmp_path / "occupied"
+    target_dir.mkdir()
+    (target_dir / "existing.txt").write_text("present\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["init", "document", str(target_dir)])
+
+    assert result.exit_code != 0
+    assert "already exists and is not empty" in result.stdout

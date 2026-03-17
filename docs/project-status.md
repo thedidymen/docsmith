@@ -6,23 +6,83 @@ Docsmith is currently a working Python CLI for building structured Markdown docu
 
 At the same time, it is still an early MVP. The public story is narrower than the project goals suggest: DOCX output is configured in the model but not actually built, template handling is intentionally simple, and the current template reuse story is still example-driven rather than package-driven. The repository is now explicitly organization-neutral: Docsmith is the engine, while document repositories and example projects own their templates and content.
 
+## Current Phase
+
+Docsmith has completed the first structural milestone set for the document model. Metadata, zones, appendices, bibliography placement, and table-of-contents placement are now explicit engine concepts. The next architectural work is to tighten the authoring model so document content, metadata, templates, and engine responsibilities remain clearly separated.
+
+## Architectural Direction
+
+The engine direction is to model stable document concepts in a neutral way and let templates consume those concepts through clear contracts. That includes metadata, document structure, appendices, bibliography placement, and other layout-relevant zones that should become explicit parts of the build model over time. The engine should keep handling orchestration and reproducibility, while templates remain outside the engine and decide how those concepts are rendered.
+
+## Next Milestone
+
+The next milestone is declarative front matter and title page support so document repositories no longer need layout-oriented workarounds in Markdown content. The current phase is still incremental: explicit structure first, then cleaner authoring contracts built on top of it.
+
+## Schema Evolution Notes
+
+Because Docsmith is still in the `0.x` phase, config and spec evolution is acceptable when it improves the document model. That evolution should be explicit, documented, and paired with implementation updates, tests, and README or status documentation changes. Backward compatibility is valuable, but clarity in the emerging document contract is more important than freezing an immature schema too early.
+
 ## Current Implemented Features
 
 ### Configuration and document model
 
 - `spec.yaml` loading and validation are implemented in `src/docsmith/config.py`.
 - The config model is structured into `project`, `metadata`, `document`, `citations`, `output`, and `versioning`.
+- `metadata` is now an extensible top-level mapping rather than a fixed field schema.
+- Arbitrary metadata keys and nested metadata structures are preserved and passed through the build pipeline for template consumption.
+- `document` now supports minimal explicit zones: `front_matter`, `main_matter`, and `back_matter`.
+- `document.appendices` now provides first-class appendix structure distinct from generic back matter.
+- `document.bibliography` now provides first-class bibliography placement distinct from hand-authored Markdown sections.
+- `document.toc` now provides first-class table-of-contents placement distinct from hand-authored front-matter sections.
+- Legacy `document.include` remains supported during the transition.
+- When explicit structure fields and `document.include` are present, explicit structure takes precedence.
 - Template resolution now uses filesystem paths declared in `spec.yaml`, typically relative to the document root.
 - Backward-compatible normalization exists for both top-level `template` forms and legacy `versioning.current_version`.
 - Pydantic is used when available, with a fallback minimal validator/parser for bare environments.
+
+### Structural milestone status
+
+- The current structural milestone set is complete for the present engine phase:
+  - extensible metadata
+  - explicit document zones
+  - first-class appendices
+  - first-class bibliography placement
+  - first-class table-of-contents placement
+- The remaining gap is no longer basic structure, but the authoring model used inside Markdown sources.
+
+## Authoring Model Issues
+
+The main architectural issue now is that some Markdown documents still contain raw LaTeX for layout purposes, such as title-page logic or formatting hacks. That is considered a violation of the intended Docsmith design.
+
+Target separation of concerns:
+
+- Markdown = content only
+- Metadata = document structure and data
+- Templates = layout
+- Engine = glue
+
+Future direction:
+
+- eliminate LaTeX from document content wherever it is being used for layout
+- replace layout-oriented Markdown hacks with metadata-driven rendering and template behavior
+- add declarative front matter and title page support as the next focused milestone
 
 ### Document discovery and assembly
 
 - Input root resolution is implemented.
 - Explicit include ordering is supported via `document.include`.
+- Explicit zone ordering is now supported via `document.front_matter`, `document.main_matter`, and `document.back_matter`.
+- Explicit appendix ordering is now supported via `document.appendices`.
+- Explicit bibliography placement is now supported via `document.bibliography`.
+- Explicit table-of-contents placement is now supported via `document.toc`.
 - If no include list is configured, Markdown files are discovered recursively and sorted.
+- If any explicit structure is configured, discovery resolves files in order: front matter, main matter, back matter, then appendices.
 - Assembly concatenates Markdown files into `build/combined.md`.
-- The configured appendix marker is replaced with `\appendix`.
+- Assembly now emits explicit zone boundary comments in the intermediate combined Markdown.
+- Explicit appendices trigger a first-class appendix boundary during assembly.
+- Structural bibliography placement emits a Pandoc-native bibliography placeholder in the configured zone.
+- Structural TOC placement emits a TOC block in the configured zone and suppresses template-level auto-TOC for that document.
+- The older appendix marker remains supported for non-migrated documents during transition.
 - Assembly inserts source boundary comments like `<!-- begin:path -->` into the combined file.
 - Resource handling is build-aware: the renderer passes Pandoc a `--resource-path` including both the build directory and the original document root so images and other assets still resolve after Markdown assembly.
 
@@ -49,6 +109,8 @@ At the same time, it is still an early MVP. The public story is narrower than th
   - runtime metadata file
   - bibliography and CSL arguments when configured
 - Runtime metadata is written as YAML rather than hand-built scalar lines.
+- Runtime metadata merges user-defined metadata from `spec.yaml` with runtime values such as `version` and optional `git_hash`.
+- On metadata key collisions, runtime values win.
 - Example templates now include compatibility shims for Pandoc-generated constructs such as `\tightlist`, `\pandocbounded`, Pandoc table output, code block environments, and CSL bibliography output.
 - Clear runtime errors are raised for:
   - missing Pandoc executable
@@ -137,6 +199,7 @@ Current behavior:
 
 - Clear separation between CLI, core build logic, rendering, configuration, templates, and versioning.
 - Clean separation between engine logic and document-owned templates/content.
+- Extensible metadata pass-through from `spec.yaml` into Pandoc template variables.
 - Deterministic fingerprint-based semantic version bumping.
 - Persisted build state rather than rewriting declarative config.
 - Non-overwriting output naming.
@@ -262,15 +325,15 @@ Coverage gaps:
 Ordered by likely impact:
 
 1. Implement actual multi-format rendering so `output.formats` is honored, starting with DOCX.
-2. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
-3. Document the current config schema, CLI usage, build artifacts, and versioning behavior in the README.
-4. Add end-to-end integration tests that run real Pandoc in CI or in an opt-in test job.
-5. Make build results format-aware, returning multiple output artifacts instead of assuming one PDF.
-6. Add opt-in integration tests that build real PDFs in CI, since the current suite is mostly unit and mocked service coverage.
-7. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
-8. Decide whether `timestamp` is a real supported strategy and either finish it or remove it for now.
-9. Add a clear template-pack distribution mechanism so templates can be reused without living in the engine repo.
-10. Add richer documentation for switching layouts between `academic_thesis` and `technical_report` in example repositories.
+2. Introduce a minimal structured document-zone model so concepts like body, appendix, and bibliography placement are explicit rather than purely template-driven.
+3. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
+4. Document the current config schema, CLI usage, build artifacts, and versioning behavior in the README.
+5. Add end-to-end integration tests that run real Pandoc in CI or in an opt-in test job.
+6. Make build results format-aware, returning multiple output artifacts instead of assuming one PDF.
+7. Add opt-in integration tests that build real PDFs in CI, since the current suite is mostly unit and mocked service coverage.
+8. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
+9. Decide whether `timestamp` is a real supported strategy and either finish it or remove it for now.
+10. Add a clear template contract story so document structure and template expectations evolve without hidden coupling.
 
 ## What Should Be Documented in the README Right Now
 

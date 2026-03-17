@@ -62,3 +62,254 @@ def test_assemble_markdown_replaces_appendix_marker(tmp_path: Path) -> None:
     content = assemble_markdown(document_root)
 
     assert "\\appendix" in content
+
+
+def test_assemble_markdown_preserves_zone_boundaries_and_order(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (sections_dir / "90_notes.md").write_text("# Notes\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Zoned Assembly Example",
+                "document:",
+                "  front_matter:",
+                "    - 00_preface.md",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  back_matter:",
+                "    - 90_notes.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- zone:front_matter -->" in content
+    assert "<!-- zone:main_matter -->" in content
+    assert "<!-- zone:back_matter -->" in content
+    assert content.index("# Preface") < content.index("# Body") < content.index("# Notes")
+
+
+def test_assemble_markdown_uses_zones_when_both_models_are_present(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (sections_dir / "20_ignored.md").write_text("# Ignored\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Zoned Precedence Example",
+                "document:",
+                "  include:",
+                "    - 20_ignored.md",
+                "  front_matter:",
+                "    - 00_preface.md",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "# Ignored" not in content
+    assert content.index("# Preface") < content.index("# Body")
+
+
+def test_assemble_markdown_places_appendices_after_back_matter(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (sections_dir / "90_notes.md").write_text("# Notes\n", encoding="utf-8")
+    (sections_dir / "30_appendix_a.md").write_text("# Appendix A\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Appendix Assembly Example",
+                "document:",
+                "  front_matter:",
+                "    - 00_preface.md",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  back_matter:",
+                "    - 90_notes.md",
+                "  appendices:",
+                "    - 30_appendix_a.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- zone:appendices -->" in content
+    assert "<!-- appendix-begin -->" in content
+    assert "\\appendix" in content
+    assert content.index("# Preface") < content.index("# Body") < content.index("# Notes")
+    assert content.index("# Notes") < content.index("# Appendix A")
+
+
+def test_assemble_markdown_strips_legacy_appendix_marker_for_explicit_appendices(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "30_appendix_a.md").write_text(
+        "# Appendix A\n\n<!-- APPENDIX -->\n\nDetails.\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Explicit Appendix Example",
+                "document:",
+                "  appendices:",
+                "    - 30_appendix_a.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert content.count("\\appendix") == 1
+    assert "<!-- APPENDIX -->" not in content
+
+
+def test_assemble_markdown_places_bibliography_in_back_matter(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "10_body.md").write_text("# Body\n\nCite [@ref].\n", encoding="utf-8")
+    (sections_dir / "90_notes.md").write_text("# Notes\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Bibliography Assembly Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  back_matter:",
+                "    - 90_notes.md",
+                "  bibliography:",
+                "    enabled: true",
+                "    title: Literature",
+                "    zone: back_matter",
+                "citations:",
+                "  bibliography: references.bib",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (document_root / "references.bib").write_text(
+        "@book{ref,\n  title = {Book}\n}\n",
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- bibliography-begin -->" in content
+    assert "# Literature" in content
+    assert "::: {#refs}" in content
+    assert content.index("# Notes") < content.index("# Literature")
+
+
+def test_assemble_markdown_keeps_backward_compatibility_without_bibliography_config(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: No Bibliography Placement Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- bibliography-begin -->" not in content
+    assert "::: {#refs}" not in content
+
+
+def test_assemble_markdown_places_toc_in_front_matter(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: TOC Assembly Example",
+                "document:",
+                "  front_matter:",
+                "    - 00_preface.md",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  toc:",
+                "    enabled: true",
+                "    title: Inhoudsopgave",
+                "    zone: front_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- toc-begin -->" in content
+    assert "# Inhoudsopgave" in content
+    assert "\\tableofcontents" in content
+    assert content.index("# Inhoudsopgave") < content.index("# Preface") < content.index("# Body")
+
+
+def test_assemble_markdown_keeps_backward_compatibility_without_toc_config(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: No TOC Placement Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- toc-begin -->" not in content
+    assert "\\tableofcontents" not in content

@@ -33,7 +33,7 @@ def test_load_document_config_for_mvp_sections() -> None:
     spec_path = Path("tests/fixtures/minimal_spec.yaml")
     config = load_document_config(spec_path)
 
-    assert config.metadata.subtitle == "MVP Config Fixture"
+    assert config.metadata["subtitle"] == "MVP Config Fixture"
     assert config.document.include == ["00_intro.md", "10_body.md"]
     assert config.document.appendix_marker == "<!-- APPENDIX -->"
     assert config.citations.bibliography == "references.bib"
@@ -61,6 +61,151 @@ def test_load_document_config_uses_defaults_for_missing_sections(tmp_path: Path)
     assert config.document.input_root == "sections"
     assert config.output.formats == ["pdf"]
     assert config.versioning.include_git_hash is True
+    assert config.metadata["title"] == "Defaults Example"
+    assert config.metadata["author"] == "Example Author"
+
+
+def test_load_document_config_preserves_flat_arbitrary_metadata(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Extensible Metadata Example",
+                "  author: Example Author",
+                '  student_number: "123456"',
+                "  program: HBO-ICT",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert config.metadata["student_number"] == "123456"
+    assert config.metadata["program"] == "HBO-ICT"
+
+
+def test_load_document_config_preserves_nested_metadata(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Nested Metadata Example",
+                "  reviewer:",
+                "    name: Dr. Example",
+                "    affiliation: Neutral Institute",
+                "  contributors:",
+                "    - Alex",
+                "    - Sam",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert config.metadata["reviewer"]["name"] == "Dr. Example"
+    assert config.metadata["contributors"] == ["Alex", "Sam"]
+
+
+def test_load_document_config_supports_document_zones(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Zoned Example",
+                "document:",
+                "  front_matter:",
+                "    - 00_preface.md",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  back_matter:",
+                "    - 90_notes.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert config.document.front_matter == ["00_preface.md"]
+    assert config.document.main_matter == ["10_body.md"]
+    assert config.document.back_matter == ["90_notes.md"]
+
+
+def test_load_document_config_supports_appendices(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Appendix Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  appendices:",
+                "    - 30_appendix_a.md",
+                "    - 31_appendix_b.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert config.document.main_matter == ["10_body.md"]
+    assert config.document.appendices == ["30_appendix_a.md", "31_appendix_b.md"]
+
+
+def test_load_document_config_supports_structural_bibliography(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Bibliography Example",
+                "document:",
+                "  bibliography:",
+                "    enabled: true",
+                "    title: Literature",
+                "    zone: back_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert config.document.bibliography.enabled is True
+    assert config.document.bibliography.title == "Literature"
+    assert config.document.bibliography.zone == "back_matter"
+
+
+def test_load_document_config_supports_structural_toc(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: TOC Example",
+                "document:",
+                "  toc:",
+                "    enabled: true",
+                "    title: Inhoudsopgave",
+                "    zone: front_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert config.document.toc.enabled is True
+    assert config.document.toc.title == "Inhoudsopgave"
+    assert config.document.toc.zone == "front_matter"
 
 
 def test_load_document_config_accepts_legacy_current_version_field(tmp_path: Path) -> None:
@@ -130,3 +275,23 @@ def test_load_document_config_rejects_unsupported_output_format(
         assert "formats" in message or "html" in message
     else:
         raise AssertionError("Expected invalid output format to fail validation")
+
+
+def test_load_document_config_rejects_non_mapping_metadata(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  - invalid",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_document_config(spec_path)
+    except Exception as exc:
+        assert "metadata" in str(exc)
+    else:
+        raise AssertionError("Expected non-mapping metadata to fail validation")
