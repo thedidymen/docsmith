@@ -36,6 +36,8 @@ The next milestone is no longer basic structure, but a clearer engine authoring 
 - add stronger end-to-end rendering tests against real templates and outputs
 - consider a build manifest or machine-readable JSON output later, after the core contract is clearer
 
+The current focused design milestone is figure and table cross-references. The design is now documented in `docs/design-cross-references.md`, but no engine support has been implemented yet.
+
 ## Schema Evolution Notes
 
 Because Docsmith is still in the `0.x` phase, config and spec evolution is acceptable when it improves the document model. That evolution should be explicit, documented, and paired with implementation updates, tests, and README or status documentation changes. Backward compatibility is valuable, but clarity in the emerging document contract is more important than freezing an immature schema too early.
@@ -88,6 +90,7 @@ Future direction:
 - eliminate LaTeX from document content wherever it is being used for layout
 - replace layout-oriented Markdown hacks with metadata-driven rendering and template behavior
 - document and stabilize the engine-template contract before adding new media or cross-reference features
+- treat automatic figure or table numbering and cross-references as an explicit engine design topic, not as a template or consumer-side workaround
 
 ### Document discovery and assembly
 
@@ -248,6 +251,7 @@ Current behavior:
 - No plugin or extension mechanism exists.
 - Mermaid or other diagram-source rendering is not implemented as an engine feature; current generated-diagram workflows live in consumer-side pre-build conventions.
 - Automatic figure or table numbering and cross-references are not modeled as engine concepts yet.
+- Cross-reference design exists in `docs/design-cross-references.md`, but validation and rendering support are not implemented.
 
 ## Current Template Capabilities
 
@@ -353,13 +357,13 @@ Coverage gaps:
 Ordered by likely impact:
 
 1. Document a clearer engine-template contract so metadata, zones, generated structure, and template expectations evolve without hidden coupling.
-2. Design cross-reference behavior, including figure and table numbering semantics, before implementing any engine support.
-3. Design diagram rendering as a first-class workflow and decide whether it belongs in the engine, a pre-build contract, or both.
-4. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.
-5. Add opt-in CI coverage for full render jobs so example and consumer-shaped documents are exercised beyond mocked unit paths.
-6. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
-7. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
-8. Decide whether `timestamp` is a real supported strategy and either finish it or remove it for now.
+2. Implement the documented cross-reference validation contract for figure and table IDs plus missing-target checks, without changing rendering yet.
+3. Add the smallest output-stage cross-reference resolution mechanism consistent with `docs/design-cross-references.md`.
+4. Design diagram rendering as a first-class workflow and decide whether it belongs in the engine, a pre-build contract, or both.
+5. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.
+6. Add opt-in CI coverage for full render jobs so example and consumer-shaped documents are exercised beyond mocked unit paths.
+7. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
+8. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
 9. Consider a build manifest or machine-readable JSON output once the core build contract is more stable.
 10. Implement actual multi-format rendering so `output.formats` is honored, starting with DOCX, after the contract and testing story are clearer.
 

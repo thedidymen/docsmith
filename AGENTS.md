@@ -57,6 +57,7 @@ Architecture rules:
 - prefer metadata, explicit document structure, or template changes over markdown-level LaTeX layout hacks
 - new media, diagram, figure, table, or cross-reference features should be designed as explicit engine or template-contract concepts before implementation
 - avoid ad hoc renderer-specific behavior for media or cross-references unless the engine-template contract is documented clearly first
+- future figure or table cross-reference work must follow `docs/design-cross-references.md` before implementation changes are made
 
 Current architecture assumptions:
 - `project.template` resolves to a filesystem path, typically relative to the document root
