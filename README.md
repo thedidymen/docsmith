@@ -415,14 +415,13 @@ Current behavior:
 - validation rejects duplicate figure or table IDs
 - validation rejects invalid figure or table IDs
 - validation rejects references to missing figure or table IDs
-- PDF rendering resolves `@fig:...` to labels such as `Figure 1`
-- PDF rendering resolves `@tbl:...` to labels such as `Table 1`
+- PDF rendering resolves `@fig:...` and `@tbl:...` through the PDF writer's figure and table counters
+- PDF references follow the rendered caption numbering and caption language of the active template
 
 Current limitations:
 
 - this is implemented for figures and tables only
 - this is currently wired for PDF output only
-- label text is currently fixed to simple English in the rendering filter
 - section and appendix cross-references are not supported
 
 ## Example Document

@@ -1,8 +1,12 @@
 from pathlib import Path
 from subprocess import CalledProcessError
+import shutil
+import subprocess
 from unittest.mock import patch
 import os
 import yaml
+
+import pytest
 
 from docsmith.config import load_document_config
 from docsmith.renderer.metadata import write_runtime_metadata
@@ -259,6 +263,51 @@ def test_build_pandoc_command_skips_lua_filter_without_cross_reference_authoring
     )
 
     assert "--lua-filter" not in command
+
+
+def test_cross_reference_lua_filter_uses_latex_caption_names_and_refs(tmp_path: Path) -> None:
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc is required for the Lua filter LaTeX output test")
+
+    input_file = tmp_path / "input.md"
+    input_file.write_text(
+        "\n".join(
+            [
+                "![Caption](examples/documents/authoring_guide/assets/docsmith-diagram.png){#fig:test width=40%}",
+                "",
+                "| A | B |",
+                "|---|---|",
+                "| 1 | 2 |",
+                "",
+                "Table: Tab cap {#tbl:test}",
+                "",
+                "See @fig:test and @tbl:test.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "pandoc",
+            str(input_file),
+            "-f",
+            "markdown+link_attributes+citations+pipe_tables+table_captions",
+            "-t",
+            "latex",
+            "--lua-filter",
+            str(cross_reference_filter_path()),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "\\caption{Caption}\\label{fig:test}" in result.stdout
+    assert "\\caption{Tab cap}\\label{tbl:test}" in result.stdout
+    assert "\\figurename~\\ref{fig:test}" in result.stdout
+    assert "\\tablename~\\ref{tbl:test}" in result.stdout
 
 
 def test_render_pdf_invokes_subprocess_with_document_local_template(tmp_path: Path) -> None:

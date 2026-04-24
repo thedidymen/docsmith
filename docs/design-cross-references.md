@@ -499,7 +499,7 @@ The current implementation stays intentionally narrow:
 
 1. validation enforces the figure/table authoring contract
 2. assembly preserves the cross-reference syntax unchanged
-3. PDF rendering uses a Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to simple English labels such as `Figure 1` and `Table 1`
+3. PDF rendering uses a Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references through LaTeX `\ref`-based figure and table counters so references follow rendered caption numbering and label language
 
 Still out of scope:
 
