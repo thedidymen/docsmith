@@ -10,6 +10,7 @@ from docsmith.config import DocsmithConfig
 from docsmith.core.crossrefs import document_has_cross_reference_authoring
 from docsmith.core.discovery import discover_markdown_files
 from docsmith.core.paths import resolve_document_path
+from docsmith.renderer.diagrams import diagram_renderer_code_path
 from docsmith.renderer.pandoc import cross_reference_filter_path
 from docsmith.templates.registry import validate_template
 
@@ -74,6 +75,16 @@ def collect_fingerprint_inputs(
                 relative_key=diagram_source_path.relative_to(document_root).as_posix()
                 if diagram_source_path.is_relative_to(document_root)
                 else diagram_source_path.as_posix(),
+            )
+        )
+
+    if config.diagrams:
+        renderer_code_path = diagram_renderer_code_path()
+        inputs.append(
+            FingerprintInput(
+                label="diagram_renderer",
+                path=renderer_code_path,
+                relative_key="docsmith/renderer/diagrams.py",
             )
         )
 

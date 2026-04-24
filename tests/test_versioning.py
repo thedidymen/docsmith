@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from docsmith.config import load_document_config
+from docsmith.renderer.diagrams import diagram_renderer_code_path
 from docsmith.versioning.fingerprint import collect_fingerprint_inputs, compute_build_fingerprint
 from docsmith.versioning.git import get_git_short_hash
 from docsmith.versioning.resolver import (
@@ -355,6 +356,52 @@ def test_collect_fingerprint_inputs_includes_declared_diagram_sources(tmp_path: 
     assert any(
         fingerprint_input.label == "diagram_source"
         and fingerprint_input.relative_key == "assets/diagrams/starter_procesdiagram.mmd"
+        for fingerprint_input in inputs
+    )
+
+
+def test_collect_fingerprint_inputs_includes_diagram_renderer_code_when_diagrams_are_declared(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    diagram_dir = document_root / "assets" / "diagrams"
+    template_root = document_root / "templates" / "technical_report"
+    sections_dir.mkdir(parents=True)
+    diagram_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text("template\n", encoding="utf-8")
+    (template_root / "defaults.yaml").write_text("pdf-engine: xelatex\n", encoding="utf-8")
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    (diagram_dir / "starter_procesdiagram.mmd").write_text("graph TD\nA-->B\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Diagram Fingerprint Example",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(document_root / "spec.yaml")
+
+    inputs = collect_fingerprint_inputs(document_root, config)
+
+    assert any(
+        fingerprint_input.label == "diagram_renderer"
+        and fingerprint_input.path == diagram_renderer_code_path()
+        and fingerprint_input.relative_key == "docsmith/renderer/diagrams.py"
         for fingerprint_input in inputs
     )
 

@@ -252,14 +252,14 @@ Current behavior:
 - No clean story exists yet for first-time template authoring or custom template extension.
 - No build manifest, artifact summary, or machine-readable CLI output exists.
 - No plugin or extension mechanism exists.
-- Mermaid or other diagram-source rendering is not implemented as an engine feature; current generated-diagram workflows live in consumer-side pre-build conventions.
+- Mermaid or other diagram-source rendering is only partially implemented as an engine feature; undeclared or non-Mermaid workflows still live outside the engine.
 - Minimal figure/table cross-reference rendering now exists for PDF output through an engine-owned Pandoc Lua filter.
 - Cross-reference design exists in `docs/design-cross-references.md`, and validation now covers duplicate IDs, invalid IDs, and missing figure or table targets.
 - Section, appendix, and DOCX cross-reference support are not implemented.
 - An opt-in real Pandoc integration test now covers the current PDF figure/table cross-reference path when `pandoc` and `xelatex` are available.
 - Diagram rendering design now exists in `docs/design-diagram-rendering.md`.
-- Mermaid diagram declarations, source validation, renderer-availability warnings, and source fingerprinting are now implemented.
-- Mermaid rendering and build-managed generated diagram assets are not implemented yet.
+- Mermaid diagram declarations, source validation, renderer-availability warnings, source fingerprinting, and build-managed Mermaid rendering are now implemented for declared PNG outputs through `mmdc`.
+- Diagram rendering is still narrow: declared Mermaid diagrams only, PNG only, no Markdown rewriting, and no broader diagram backend model yet.
 
 ## Current Template Capabilities
 

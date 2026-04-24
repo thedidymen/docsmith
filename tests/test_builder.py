@@ -16,6 +16,7 @@ def _write_document_spec(
     template: str = "templates/technical_report",
     bibliography: str | None = None,
     csl: str | None = None,
+    diagrams: list[dict[str, str]] | None = None,
 ) -> None:
     lines = [
         "project:",
@@ -40,6 +41,19 @@ def _write_document_spec(
         if csl:
             lines.append(f"  csl: {csl}")
 
+    if diagrams:
+        lines.append("diagrams:")
+        for diagram in diagrams:
+            lines.extend(
+                [
+                    f"  - id: {diagram['id']}",
+                    f"    type: {diagram['type']}",
+                    f"    source: {diagram['source']}",
+                    f"    output: {diagram['output']}",
+                    f"    format: {diagram['format']}",
+                ]
+            )
+
     (document_root / "spec.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -62,6 +76,25 @@ def _create_document(document_root: Path) -> None:
     (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
     _create_template(document_root)
     _write_document_spec(document_root)
+
+
+def _create_document_with_declared_diagram(document_root: Path) -> None:
+    _create_document(document_root)
+    diagram_dir = document_root / "assets" / "diagrams"
+    diagram_dir.mkdir(parents=True, exist_ok=True)
+    (diagram_dir / "starter_procesdiagram.mmd").write_text("graph TD\nA-->B\n", encoding="utf-8")
+    _write_document_spec(
+        document_root,
+        diagrams=[
+            {
+                "id": "starter-procesdiagram",
+                "type": "mermaid",
+                "source": "assets/diagrams/starter_procesdiagram.mmd",
+                "output": "assets/generated/starter_procesdiagram.png",
+                "format": "png",
+            }
+        ],
+    )
 
 
 def test_first_build_uses_initial_version_when_no_prior_state(tmp_path: Path) -> None:
@@ -249,6 +282,60 @@ def test_build_document_writes_intermediate_files_and_runtime_metadata(tmp_path:
     assert "title: Example Document" in metadata
     assert "version: 0.1.0" in metadata
     assert "git_hash: abc1234" in metadata
+
+
+def test_build_document_renders_declared_diagrams_before_pandoc(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    _create_document_with_declared_diagram(document_root)
+    call_order: list[str] = []
+
+    def _record_diagrams(*args: object, **kwargs: object) -> list[object]:
+        call_order.append("diagrams")
+        return []
+
+    def _record_pdf(*args: object, **kwargs: object) -> Path:
+        call_order.append("pdf")
+        return Path(kwargs.get("output_file", args[1]))  # pragma: no cover - defensive fallback
+
+    with (
+        patch("docsmith.core.builder.render_declared_diagrams", side_effect=_record_diagrams),
+        patch("docsmith.core.builder.render_pdf", side_effect=_record_pdf),
+        patch("docsmith.core.builder.get_git_short_hash", return_value="abc1234"),
+    ):
+        build_document(document_root)
+
+    assert call_order == ["diagrams", "pdf"]
+
+
+def test_build_document_passes_build_dir_to_declared_diagram_rendering(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    _create_document_with_declared_diagram(document_root)
+
+    with (
+        patch("docsmith.core.builder.render_declared_diagrams") as mock_render_diagrams,
+        patch("docsmith.core.builder.render_pdf"),
+        patch("docsmith.core.builder.get_git_short_hash", return_value="abc1234"),
+    ):
+        build_document(document_root)
+
+    assert mock_render_diagrams.call_args.args[0] == document_root.resolve()
+    assert mock_render_diagrams.call_args.args[1] == document_root.resolve() / "build"
+
+
+def test_build_document_skips_declared_diagram_rendering_when_none_are_configured(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    _create_document(document_root)
+
+    with (
+        patch("docsmith.core.builder.render_declared_diagrams") as mock_render_diagrams,
+        patch("docsmith.core.builder.render_pdf"),
+        patch("docsmith.core.builder.get_git_short_hash", return_value="abc1234"),
+    ):
+        build_document(document_root)
+
+    mock_render_diagrams.assert_not_called()
 
 
 def test_build_document_merges_user_metadata_into_runtime_metadata(tmp_path: Path) -> None:

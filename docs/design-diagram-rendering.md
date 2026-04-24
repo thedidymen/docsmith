@@ -506,7 +506,7 @@ Recommended lifecycle:
 
 1. Load `spec.yaml`
 2. Validate diagram declarations and source paths
-3. Render diagrams into a build-managed directory before Markdown assembly completes for rendering
+3. Render diagrams into a build-managed directory before Pandoc rendering
 4. Assemble Markdown with image references that point to the rendered output paths Docsmith expects
 5. Pass Pandoc a resource path that includes both build-managed assets and source-document assets
 6. Render PDF normally
@@ -514,7 +514,7 @@ Recommended lifecycle:
 Recommended timing:
 
 - diagram rendering should happen before Pandoc
-- for the first implementation, it should happen before or during build preparation, prior to invoking Pandoc
+- for the first implementation, it can happen after Markdown assembly but before Pandoc, as long as rendered outputs are written to predictable build-managed paths that the existing Markdown image references can resolve through Pandoc resource paths
 - it does not need to happen before logical document discovery
 
 Why this timing works:

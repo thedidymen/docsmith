@@ -7,6 +7,7 @@ from pathlib import Path
 
 from docsmith.config import DocsmithConfig, load_document_config
 from docsmith.core.assembler import assemble_markdown
+from docsmith.renderer.diagrams import render_declared_diagrams
 from docsmith.renderer.metadata import write_runtime_metadata
 from docsmith.renderer.pandoc import render_pdf
 from docsmith.versioning.fingerprint import compute_build_fingerprint
@@ -75,6 +76,9 @@ def build_document(
         version=version_info.semantic_version,
         git_hash=version_info.git_hash,
     )
+
+    if config.diagrams:
+        render_declared_diagrams(document_root, build_dir, config)
 
     render_pdf(
         assembled_markdown_path,

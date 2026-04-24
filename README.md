@@ -457,7 +457,7 @@ It demonstrates:
 - visible version metadata on the generated title page
 - document-local template paths in `spec.yaml`
 
-Note: if a document repository uses Mermaid or another diagram source format, Docsmith currently expects that workflow to be handled before `docsmith build`, with the generated image asset committed or prepared by the consumer repository. Diagram rendering is not yet a core engine feature.
+Note: Docsmith now supports an explicit Mermaid declaration model in `spec.yaml` and can render declared Mermaid diagrams during `docsmith build` with `mmdc`. This is currently limited to declared Mermaid sources with PNG output. Markdown should continue to reference ordinary image paths, and undeclared diagram-source workflows remain consumer-side conventions.
 
 Validate it:
 
