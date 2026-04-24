@@ -58,6 +58,8 @@ Architecture rules:
 - new media, diagram, figure, table, or cross-reference features should be designed as explicit engine or template-contract concepts before implementation
 - avoid ad hoc renderer-specific behavior for media or cross-references unless the engine-template contract is documented clearly first
 - future figure or table cross-reference work must follow `docs/design-cross-references.md` before implementation changes are made
+- future diagram rendering work must follow `docs/design-diagram-rendering.md` before implementation changes are made
+- do not add consumer-side Mermaid or diagram workarounds in the engine; keep renderer behavior explicit, neutral, and build-managed
 
 Current architecture assumptions:
 - `project.template` resolves to a filesystem path, typically relative to the document root

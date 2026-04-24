@@ -38,6 +38,8 @@ The next milestone is no longer basic structure, but a clearer engine authoring 
 
 The current focused design milestone is figure and table cross-references. The design is documented in `docs/design-cross-references.md`, validation now exists for figure and table IDs plus missing-target checks, and PDF builds now use a minimal Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to numbered labels. This is still a narrow first step: figure and table numbering is only wired for PDF output, and broader cross-reference support is not implemented.
 
+Diagram rendering is now the next explicit design milestone. The design is documented in `docs/design-diagram-rendering.md`, but engine-managed Mermaid rendering is not implemented yet.
+
 ## Schema Evolution Notes
 
 Because Docsmith is still in the `0.x` phase, config and spec evolution is acceptable when it improves the document model. That evolution should be explicit, documented, and paired with implementation updates, tests, and README or status documentation changes. Backward compatibility is valuable, but clarity in the emerging document contract is more important than freezing an immature schema too early.
@@ -91,6 +93,7 @@ Future direction:
 - replace layout-oriented Markdown hacks with metadata-driven rendering and template behavior
 - document and stabilize the engine-template contract before adding new media or cross-reference features
 - treat automatic figure or table numbering and cross-references as an explicit engine design topic, not as a template or consumer-side workaround
+- treat Mermaid and other diagram rendering as a build-system capability with explicit contracts, not as a consumer-side script convention
 
 ### Document discovery and assembly
 
@@ -254,6 +257,7 @@ Current behavior:
 - Cross-reference design exists in `docs/design-cross-references.md`, and validation now covers duplicate IDs, invalid IDs, and missing figure or table targets.
 - Section, appendix, and DOCX cross-reference support are not implemented.
 - An opt-in real Pandoc integration test now covers the current PDF figure/table cross-reference path when `pandoc` and `xelatex` are available.
+- Diagram rendering design now exists in `docs/design-diagram-rendering.md`, but Mermaid rendering, renderer dependency checks, and build-managed generated diagram assets are not implemented.
 
 ## Current Template Capabilities
 
@@ -360,8 +364,8 @@ Ordered by likely impact:
 
 1. Document a clearer engine-template contract so metadata, zones, generated structure, and template expectations evolve without hidden coupling.
 2. Stabilize and test the current PDF-only figure/table cross-reference path against real Pandoc output.
-3. Extend cross-reference coverage only after the figure/table output path is stable, for example with future section or appendix references if they are still justified.
-4. Design diagram rendering as a first-class workflow and decide whether it belongs in the engine, a pre-build contract, or both.
+3. Implement the first explicit Mermaid rendering path from `docs/design-diagram-rendering.md` with build-managed outputs and no consumer-side script dependency.
+4. Extend cross-reference coverage only after the figure/table output path is stable, for example with future section or appendix references if they are still justified.
 5. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.
 6. Add opt-in CI coverage for full render jobs so example and consumer-shaped documents are exercised beyond mocked unit paths.
 7. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
@@ -404,6 +408,7 @@ Ordered by likely impact:
 - clearer template documentation for users who want to adopt or adapt a document-local template
 - a small compatibility statement for supported Python and external tool expectations
 - a clearer statement about which media and diagram workflows are engine features versus consumer conventions
+- the planned engine-owned Mermaid workflow and its dependency expectations once implemented
 
 ## What Should Be Postponed Until After the First Real Document Repository Is Tested
 
