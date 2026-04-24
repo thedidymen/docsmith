@@ -20,7 +20,7 @@ The external `docsmith-demo` consumer repository has now validated the current e
 - bibliography placement
 - ordered TOC placement
 
-That consumer work also exercises richer title-page metadata and media-oriented authoring conventions around image sizing, generated diagram assets, and table captions. Those findings are useful validation, but they are not yet proof that Docsmith should absorb those conventions directly into the engine without a clearer contract.
+That consumer work also exercises richer title-page metadata and media-oriented authoring conventions around image sizing, engine-managed Mermaid diagrams, and table captions. Those findings are useful validation, but they are not yet proof that Docsmith should absorb every consumer convention directly into the engine without a clearer contract.
 
 ## Architectural Direction
 
@@ -32,13 +32,13 @@ The next milestone is no longer basic structure, but a clearer engine authoring 
 
 - document the engine-template contract more explicitly
 - complete the first narrow figure/table cross-reference rendering path before expanding the model further
-- design diagram rendering as a first-class workflow before deciding whether it belongs in the engine or remains a consumer pre-build step
+- document diagram rendering as an engine-owned build capability with clear dependency expectations for `mmdc`
 - add stronger end-to-end rendering tests against real templates and outputs
 - consider a build manifest or machine-readable JSON output later, after the core contract is clearer
 
 The current focused design milestone is figure and table cross-references. The design is documented in `docs/design-cross-references.md`, validation now exists for figure and table IDs plus missing-target checks, and PDF builds now use a minimal Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to numbered labels. This is still a narrow first step: figure and table numbering is only wired for PDF output, and broader cross-reference support is not implemented.
 
-Diagram rendering is now the next explicit design milestone. The design is documented in `docs/design-diagram-rendering.md`. The first foundation now exists for Mermaid diagram declarations, source validation, renderer-availability warnings, and fingerprinting, but engine-managed Mermaid rendering itself is not implemented yet.
+Diagram rendering is now in its first implemented engine-managed form. The design is documented in `docs/design-diagram-rendering.md`. Mermaid diagram declarations, source validation, renderer-availability checks, fingerprinting, and engine-managed rendering are now implemented. The remaining work is to clarify the long-term contract, expand test coverage, and decide how broad diagram support should become beyond the current Mermaid path.
 
 ## Schema Evolution Notes
 
@@ -260,6 +260,7 @@ Current behavior:
 - Diagram rendering design now exists in `docs/design-diagram-rendering.md`.
 - Mermaid diagram declarations, source validation, renderer-availability warnings, source fingerprinting, and build-managed Mermaid rendering are now implemented for declared PNG outputs through `mmdc`.
 - Diagram rendering is still narrow: declared Mermaid diagrams only, PNG only, no Markdown rewriting, and no broader diagram backend model yet.
+- Mermaid CLI remains an optional build-environment dependency: documents only need `mmdc` when they actually declare Mermaid diagrams.
 
 ## Current Template Capabilities
 

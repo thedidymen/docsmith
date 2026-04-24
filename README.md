@@ -10,7 +10,7 @@ Docsmith is a neutral document build engine, not a template pack. Templates live
 
 The current direction is to evolve Docsmith from a PDF-first feature set into a clearer structured document build system with explicit document concepts. During the `0.x` phase, the document and config model may still evolve as those concepts are formalized, but those changes should remain documented and aligned with the implemented behavior.
 
-Consumer repositories are now also helping validate which workflows belong in the engine versus in document-local conventions. In particular, diagram-source workflows such as Mermaid generation are currently treated as consumer-side pre-build conventions, not as built-in Docsmith engine features.
+Consumer repositories are now also helping validate which workflows belong in the engine versus in document-local conventions. Mermaid diagram rendering is now an engine-managed build capability when documents declare diagrams in `spec.yaml`, while consumer repositories remain responsible for their own diagram source files and authoring conventions.
 
 ## Design Principles
 
@@ -68,6 +68,12 @@ PDF builds require:
 - a LaTeX engine compatible with the document template defaults
 - `xelatex` available on `PATH`
 
+If a document declares Mermaid diagrams in `spec.yaml`, the build environment must also provide:
+
+- `mmdc` (Mermaid CLI) available on `PATH`
+
+`mmdc` is optional unless the document uses declared Mermaid diagrams.
+
 #### macOS
 
 Install Pandoc:
@@ -84,9 +90,17 @@ brew install --cask mactex-no-gui
 
 If `xelatex` is still not found after installation, restart the shell or ensure the TeX binary directory is on `PATH`.
 
+If you want to build documents with declared Mermaid diagrams, install Mermaid CLI as well:
+
+```bash
+npm install -g @mermaid-js/mermaid-cli
+```
+
 #### Linux
 
 Install Pandoc and a TeX distribution with `xelatex`.
+
+If you want to build documents with declared Mermaid diagrams, also install Mermaid CLI so `mmdc` is available on `PATH`.
 
 Debian/Ubuntu example:
 
@@ -116,11 +130,19 @@ Common approach:
 3. Install MiKTeX or TeX Live
 4. Open a new terminal so `pandoc` and `xelatex` are available on `PATH`
 
+If you want to build documents with declared Mermaid diagrams, also install Mermaid CLI and verify `mmdc --version`.
+
 Check both tools:
 
 ```powershell
 pandoc --version
 xelatex --version
+```
+
+If you build documents with declared Mermaid diagrams, also check:
+
+```powershell
+mmdc --version
 ```
 
 ## Python Environment Setup
