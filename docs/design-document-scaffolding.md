@@ -1,8 +1,8 @@
 # Document Scaffolding Design
 
-This document defines the next Docsmith design direction for document scaffolding.
+This document defines the current Docsmith design direction for document scaffolding.
 
-It is a design document only. It does not change current CLI behavior.
+It is primarily a design document. The neutral scaffold described here now matches the implemented `docsmith init document` baseline closely, while profile expansion remains a design topic.
 
 ## Current State
 

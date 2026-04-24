@@ -2,38 +2,43 @@
 
 ## Status
 
-This document defines the proposed Docsmith engine design for engine-managed diagram rendering, starting with Mermaid.
+This document defines the Docsmith engine design for engine-managed diagram rendering, starting with Mermaid.
 
-It is a design and documentation slice only.
+Implemented today:
 
-Not implemented:
+- Mermaid diagram declarations in `spec.yaml`
+- validation of declared Mermaid source paths
+- renderer-availability checks for `mmdc`
+- fingerprinting of declared Mermaid sources and engine-owned renderer code
+- build-managed Mermaid rendering to PNG through `mmdc`
 
-- engine-managed Mermaid rendering
-- diagram declarations in `spec.yaml`
+Still not implemented:
+
 - Markdown rewriting for diagram sources
-- renderer dependency management for Mermaid
-- diagram-specific validation beyond current generic asset handling
+- fenced Mermaid block authoring
+- broader diagram backend support beyond the current Mermaid path
+- DOCX-specific diagram rendering behavior
 
-The purpose of this document is to move diagram generation from consumer-side scripts toward a reproducible engine-owned build workflow without making Docsmith template-specific or repository-specific.
+The purpose of this document is to document the current narrow implementation and the broader direction beyond it, without making Docsmith template-specific or repository-specific.
 
 ## Current State
 
-The current workflow in consumer repositories such as `docsmith-demo` is:
+The current implemented workflow is:
 
 - Mermaid source files are authored as `.mmd` files
-- a repository-local script renders those sources into generated PNG assets
-- Markdown references the generated PNG as an ordinary figure
+- diagrams are declared explicitly in `spec.yaml`
+- Markdown references the declared output path as an ordinary image
+- Docsmith renders declared Mermaid diagrams into build-managed PNG assets before Pandoc runs
 - Pandoc and templates then see only a normal image asset
 
-That works as a short-term consumer convention, but it is not a good long-term engine story.
+This closes the earlier consumer-side script gap for the supported Mermaid path, but the feature remains intentionally narrow.
 
-Current drawbacks:
+Current limitations:
 
-- it introduces an extra manual or repo-local pre-build step
-- generated assets can become stale relative to their `.mmd` sources
-- build reproducibility depends on a consumer-owned script outside Docsmith's build contract
-- workflow quality and behavior can drift between consumer repositories
-- fingerprinting and versioning currently see only the image asset path used in Markdown, not the real diagram source workflow
+- only declared Mermaid diagrams are supported
+- only PNG output is supported
+- authored Markdown still references ordinary image paths rather than Mermaid source paths
+- broader diagram authoring models and backend strategies remain open design topics
 
 ## Desired Engine Behavior
 
@@ -589,14 +594,13 @@ This avoids a breaking change and keeps document repositories in control of migr
 5. Should diagrams be declared in `spec.yaml`, discovered from Markdown, or both?
 6. How much sandboxing or execution isolation should Docsmith require when invoking Mermaid rendering tools?
 
-## Recommended Next Implementation Slice
+## Recommended Next Slice
 
-The next implementation slice should stay narrow:
+The next slice should stay narrow:
 
-1. Add a minimal `spec.yaml` design for explicit Mermaid diagram declarations.
-2. Add validation for declared Mermaid source paths and renderer availability.
-3. Add a build-managed Mermaid rendering step using `mmdc`.
-4. Write rendered outputs into the build directory and integrate those paths with Pandoc resource handling.
-5. Add focused tests for dependency checks, path resolution, fingerprinting, and build-managed asset generation.
+1. Broaden tests around declared Mermaid rendering and dependency handling.
+2. Clarify the documented contract for optional `mmdc` availability in build environments.
+3. Decide how much renderer configuration belongs in `spec.yaml` before expanding the schema.
+4. Decide whether additional diagram types are worth modeling explicitly or should wait.
 
-That path keeps the feature explicit, reproducible, and neutral without introducing plugin infrastructure or consumer-side workarounds.
+That keeps the feature explicit, reproducible, and neutral without jumping prematurely to a generalized renderer framework.

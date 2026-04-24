@@ -31,12 +31,12 @@ The engine direction is to model stable document concepts in a neutral way and l
 The next milestone is no longer basic structure, but a clearer engine authoring and rendering contract informed by real consumer usage. The immediate priorities are:
 
 - document the engine-template contract more explicitly
-- complete the first narrow figure/table cross-reference rendering path before expanding the model further
-- document diagram rendering as an engine-owned build capability with clear dependency expectations for `mmdc`
+- broaden and harden the current figure/table cross-reference contract beyond the first narrow PDF path
+- document and tighten diagram rendering as an engine-owned build capability with clear dependency expectations for `mmdc`
 - add stronger end-to-end rendering tests against real templates and outputs
 - consider a build manifest or machine-readable JSON output later, after the core contract is clearer
 
-The current focused design milestone is figure and table cross-references. The design is documented in `docs/design-cross-references.md`, validation now exists for figure and table IDs plus missing-target checks, and PDF builds now use a minimal Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to numbered labels. This is still a narrow first step: figure and table numbering is only wired for PDF output, and broader cross-reference support is not implemented.
+The current focused cross-reference area is now stabilization rather than first implementation. The design is documented in `docs/design-cross-references.md`, validation exists for figure and table IDs plus missing-target checks, and PDF builds use a minimal Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to numbered labels. This remains intentionally narrow: figure and table numbering is only wired for PDF output, while section, appendix, and DOCX cross-reference support remain outside the implemented scope.
 
 Diagram rendering is now in its first implemented engine-managed form. The design is documented in `docs/design-diagram-rendering.md`. Mermaid diagram declarations, source validation, renderer-availability checks, fingerprinting, and engine-managed rendering are now implemented. The remaining work is to clarify the long-term contract, expand test coverage, and decide how broad diagram support should become beyond the current Mermaid path.
 
@@ -247,12 +247,12 @@ Current behavior:
 - Template support is intentionally simple and path-based; there is no template packaging workflow yet.
 - The `docsmith templates` command only lists `./templates` under the current working tree; it is not a full template discovery mechanism.
 - Template metadata conventions are not formalized beyond required file presence.
-- There is no end-to-end test that runs real Pandoc against a real template and verifies produced artifacts.
+- Only narrow opt-in end-to-end tests currently run real Pandoc against real templates and produced artifacts; broader render assertions are still missing.
 - No packaging/release guidance is documented for external users.
 - No clean story exists yet for first-time template authoring or custom template extension.
 - No build manifest, artifact summary, or machine-readable CLI output exists.
 - No plugin or extension mechanism exists.
-- Mermaid or other diagram-source rendering is only partially implemented as an engine feature; undeclared or non-Mermaid workflows still live outside the engine.
+- Declared Mermaid rendering is implemented as an engine feature; undeclared or non-Mermaid workflows still live outside the engine.
 - Minimal figure/table cross-reference rendering now exists for PDF output through an engine-owned Pandoc Lua filter.
 - Cross-reference design exists in `docs/design-cross-references.md`, and validation now covers duplicate IDs, invalid IDs, and missing figure or table targets.
 - Section, appendix, and DOCX cross-reference support are not implemented.
@@ -321,7 +321,7 @@ Not yet supported:
 
 ## Current Test Coverage Areas
 
-The repository currently has 68 passing tests covering these areas:
+The repository currently has 160 passing tests covering these areas:
 
 - config loading, defaults, validation, and legacy field compatibility
 - Markdown discovery and include ordering
@@ -368,7 +368,7 @@ Ordered by likely impact:
 
 1. Document a clearer engine-template contract so metadata, zones, generated structure, and template expectations evolve without hidden coupling.
 2. Stabilize and test the current PDF-only figure/table cross-reference path against real Pandoc output.
-3. Implement the first explicit Mermaid rendering path from `docs/design-diagram-rendering.md` with build-managed outputs and no consumer-side script dependency.
+3. Expand and harden the current Mermaid rendering path from `docs/design-diagram-rendering.md`, rather than widening the feature surface prematurely.
 4. Extend cross-reference coverage only after the figure/table output path is stable, for example with future section or appendix references if they are still justified.
 5. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.
 6. Add opt-in CI coverage for full render jobs so example and consumer-shaped documents are exercised beyond mocked unit paths.

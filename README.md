@@ -29,7 +29,10 @@ What works today:
 - assemble sources into a combined Markdown build artifact
 - validate document inputs before building
 - render PDF with Pandoc and document-local templates
+- scaffold neutral starter document and template directories with `docsmith init`
 - support bibliography and CSL paths when configured
+- validate figure/table cross-reference authoring and resolve minimal PDF references
+- render declared Mermaid diagrams into build-managed PNG assets during build
 - write versioned output filenames
 - automatically bump semantic versions when effective build inputs change
 - include optional git short hash metadata in output filenames
