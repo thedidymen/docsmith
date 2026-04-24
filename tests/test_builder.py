@@ -620,3 +620,112 @@ def test_build_document_runs_real_pdf_cross_reference_path_with_lua_filter(
     command = captured_commands[-1]
     assert "--lua-filter" in command
     assert str(cross_reference_filter_path()) in command
+
+
+def test_build_document_runs_real_mermaid_rendering_path(
+    tmp_path: Path,
+) -> None:
+    if (
+        shutil.which("mmdc") is None
+        or shutil.which("pandoc") is None
+        or shutil.which("xelatex") is None
+    ):
+        pytest.skip(
+            "mmdc, pandoc, and xelatex are required for the real Mermaid integration test"
+        )
+
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    template_root = document_root / "templates" / "mermaid_probe"
+    diagram_source_dir = document_root / "assets" / "diagrams"
+    sections_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+    diagram_source_dir.mkdir(parents=True)
+
+    (sections_dir / "00_intro.md").write_text(
+        "\n".join(
+            [
+                "# Intro",
+                "",
+                "Hieronder staat een build-managed Mermaid-diagram.",
+                "",
+                "![Procesdiagram](assets/generated/starter_procesdiagram.png){width=40%}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (diagram_source_dir / "starter_procesdiagram.mmd").write_text(
+        "\n".join(
+            [
+                "flowchart TD",
+                "    Start --> Controle",
+                "    Controle --> Einde",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (template_root / "defaults.yaml").write_text(
+        "\n".join(
+            [
+                "from: markdown+link_attributes",
+                "pdf-engine: xelatex",
+                "standalone: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (template_root / "template.tex").write_text(
+        "\n".join(
+            [
+                r"\documentclass{article}",
+                r"\usepackage{graphicx}",
+                r"\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}",
+                r"\providecommand{\pandocbounded}[1]{#1}",
+                r"\begin{document}",
+                r"$body$",
+                r"\end{document}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/mermaid_probe",
+                "metadata:",
+                "  title: Real Mermaid Integration Example",
+                "  author: Example Author",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+                "output:",
+                "  directory: output",
+                "  basename: mermaid_integration",
+                "versioning:",
+                "  strategy: semver",
+                "  initial_version: 0.1.0",
+                "  include_git_hash: false",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = build_document(document_root)
+
+    assert result.output_path.exists()
+    assert result.output_path.suffix == ".pdf"
+    assert (
+        result.build_dir / "assets" / "generated" / "starter_procesdiagram.png"
+    ).exists()
