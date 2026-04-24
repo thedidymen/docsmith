@@ -412,3 +412,148 @@ def test_assemble_markdown_keeps_backward_compatibility_without_toc_config(
 
     assert "<!-- toc-begin -->" not in content
     assert "\\tableofcontents" not in content
+
+
+def test_assemble_markdown_preserves_cross_reference_authoring_across_files_and_zones(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text(
+        "\n".join(
+            [
+                "# Preface",
+                "",
+                "Zie @fig:registratieproces.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (sections_dir / "10_body.md").write_text(
+        "\n".join(
+            [
+                "# Body",
+                "",
+                "![Procesdiagram van het registratieproces](assets/generated/registratieproces.png){#fig:registratieproces width=80%}",
+                "",
+                "| Scenario | Verwacht resultaat |",
+                "|---|---|",
+                "| Geldige invoer | Inschrijving wordt vastgelegd |",
+                "",
+                "Table: Resultaten van validatiescenario's {#tbl:validatie}",
+                "",
+                "Zie @tbl:validatie.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (sections_dir / "30_appendix.md").write_text(
+        "\n".join(
+            [
+                "# Appendix",
+                "",
+                "In de bijlage verwijzen we opnieuw naar @fig:registratieproces en @tbl:validatie.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Cross Reference Assembly Example",
+                "document:",
+                "  front_matter:",
+                "    - 00_preface.md",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  appendices:",
+                "    - 30_appendix.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- zone:front_matter -->" in content
+    assert "<!-- zone:main_matter -->" in content
+    assert "<!-- zone:appendices -->" in content
+    assert "<!-- begin:sections/00_preface.md -->" in content
+    assert "<!-- begin:sections/10_body.md -->" in content
+    assert "<!-- begin:sections/30_appendix.md -->" in content
+    assert "{#fig:registratieproces width=80%}" in content
+    assert "{#tbl:validatie}" in content
+    assert "@fig:registratieproces" in content
+    assert "@tbl:validatie" in content
+    assert content.index("@fig:registratieproces") < content.index("{#fig:registratieproces width=80%}")
+    assert content.index("{#fig:registratieproces width=80%}") < content.index("{#tbl:validatie}")
+    assert content.index("{#tbl:validatie}") < content.rindex("@tbl:validatie")
+
+
+def test_assemble_markdown_preserves_cross_reference_authoring_in_explicit_appendices(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "10_body.md").write_text(
+        "\n".join(
+            [
+                "# Body",
+                "",
+                "Zie @fig:appendix-overview.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (sections_dir / "30_appendix.md").write_text(
+        "\n".join(
+            [
+                "# Appendix",
+                "",
+                "<!-- APPENDIX -->",
+                "",
+                "![Appendix overview](assets/generated/appendix-overview.png){#fig:appendix-overview width=65%}",
+                "",
+                "| Kolom | Waarde |",
+                "|---|---|",
+                "| A | 1 |",
+                "",
+                "Table: Appendixgegevens {#tbl:appendix-data}",
+                "",
+                "Zie @tbl:appendix-data.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Appendix Cross Reference Assembly Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+                "  appendices:",
+                "    - 30_appendix.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "<!-- appendix-begin -->" in content
+    assert content.count("\\appendix") == 1
+    assert "<!-- APPENDIX -->" not in content
+    assert "{#fig:appendix-overview width=65%}" in content
+    assert "{#tbl:appendix-data}" in content
+    assert "@fig:appendix-overview" in content
+    assert "@tbl:appendix-data" in content
