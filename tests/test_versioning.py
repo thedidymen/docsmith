@@ -316,6 +316,93 @@ def test_collect_fingerprint_inputs_skips_cross_reference_filter_without_authori
     )
 
 
+def test_collect_fingerprint_inputs_includes_declared_diagram_sources(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    diagram_dir = document_root / "assets" / "diagrams"
+    template_root = document_root / "templates" / "technical_report"
+    sections_dir.mkdir(parents=True)
+    diagram_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text("template\n", encoding="utf-8")
+    (template_root / "defaults.yaml").write_text("pdf-engine: xelatex\n", encoding="utf-8")
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    (diagram_dir / "starter_procesdiagram.mmd").write_text("graph TD\nA-->B\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Diagram Fingerprint Example",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(document_root / "spec.yaml")
+
+    inputs = collect_fingerprint_inputs(document_root, config)
+
+    assert any(
+        fingerprint_input.label == "diagram_source"
+        and fingerprint_input.relative_key == "assets/diagrams/starter_procesdiagram.mmd"
+        for fingerprint_input in inputs
+    )
+
+
+def test_compute_build_fingerprint_changes_when_declared_diagram_source_changes(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    diagram_dir = document_root / "assets" / "diagrams"
+    template_root = document_root / "templates" / "technical_report"
+    sections_dir.mkdir(parents=True)
+    diagram_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text("template\n", encoding="utf-8")
+    (template_root / "defaults.yaml").write_text("pdf-engine: xelatex\n", encoding="utf-8")
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    diagram_path = diagram_dir / "starter_procesdiagram.mmd"
+    diagram_path.write_text("graph TD\nA-->B\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Diagram Fingerprint Change Example",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(document_root / "spec.yaml")
+
+    original = compute_build_fingerprint(document_root, config)
+    diagram_path.write_text("graph TD\nA-->C\n", encoding="utf-8")
+    changed = compute_build_fingerprint(document_root, config)
+
+    assert changed != original
+
+
 def test_state_file_persistence_and_reload(tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
     path = save_build_state(

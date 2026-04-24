@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -30,6 +31,7 @@ class ValidationCheck:
     label: str
     ok: bool
     detail: str
+    warning: bool = False
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,18 @@ def _run_check(label: str, validator: Callable[[], str]) -> ValidationCheck:
     """Execute a validation step and capture its outcome."""
     try:
         detail = validator()
+    except Exception as exc:
+        return ValidationCheck(label=label, ok=False, detail=str(exc))
+
+    return ValidationCheck(label=label, ok=True, detail=detail)
+
+
+def _run_warning_check(label: str, validator: Callable[[], str]) -> ValidationCheck:
+    """Execute a validation step that may emit a warning without failing validation."""
+    try:
+        detail = validator()
+    except RuntimeError as exc:
+        return ValidationCheck(label=label, ok=True, detail=str(exc), warning=True)
     except Exception as exc:
         return ValidationCheck(label=label, ok=False, detail=str(exc))
 
@@ -209,6 +223,39 @@ def _validate_cross_reference_authoring(document_root: Path, config: DocsmithCon
     return validate_markdown_cross_references(document_root, config)
 
 
+def _validate_diagram_sources(document_root: Path, config: DocsmithConfig) -> str:
+    """Validate declared diagram source files."""
+    if not config.diagrams:
+        return "No diagrams declared"
+
+    checked_sources: list[Path] = []
+    for diagram in config.diagrams:
+        source_path = resolve_document_path(diagram.source, document_root)
+        if not source_path.exists():
+            raise FileNotFoundError(f"Diagram source file not found: {source_path}")
+        if not source_path.is_file():
+            raise FileNotFoundError(f"Diagram source path is not a file: {source_path}")
+        checked_sources.append(source_path)
+
+    return f"Found {len(checked_sources)} diagram source file(s)"
+
+
+def _validate_diagram_renderer_availability(config: DocsmithConfig) -> str:
+    """Validate whether optional diagram rendering tooling is available."""
+    if not config.diagrams:
+        return "No diagram renderer required"
+
+    declared_mermaid = any(diagram.type == "mermaid" for diagram in config.diagrams)
+    if declared_mermaid and shutil.which("mmdc") is None:
+        raise RuntimeError(
+            "Mermaid diagrams are declared, but `mmdc` is not available on PATH. "
+            "Validation continues, but builds that rely on engine-managed Mermaid rendering "
+            "will fail until Mermaid CLI is installed."
+        )
+
+    return "Found Mermaid renderer dependency: mmdc"
+
+
 def validate_document(document_root: Path) -> ValidationReport:
     """Validate a document directory and return a structured report."""
     document_root = document_root.resolve()
@@ -281,6 +328,18 @@ def validate_document(document_root: Path) -> ValidationReport:
             lambda: _validate_cross_reference_authoring(document_root, config),
         )
     )
+    checks.append(
+        _run_check(
+            "diagram source path existence",
+            lambda: _validate_diagram_sources(document_root, config),
+        )
+    )
+    checks.append(
+        _run_warning_check(
+            "diagram renderer availability",
+            lambda: _validate_diagram_renderer_availability(config),
+        )
+    )
 
     return ValidationReport(document_root=document_root, checks=checks)
 
@@ -289,7 +348,7 @@ def format_validation_report(report: ValidationReport) -> str:
     """Render a human-readable validation report."""
     lines = [f"Validation results for {report.document_root}"]
     for check in report.checks:
-        status = "PASS" if check.ok else "FAIL"
+        status = "WARN" if check.warning else ("PASS" if check.ok else "FAIL")
         lines.append(f"[{status}] {check.label}: {check.detail}")
 
     summary = "Validation succeeded." if report.ok else "Validation failed."

@@ -38,7 +38,7 @@ The next milestone is no longer basic structure, but a clearer engine authoring 
 
 The current focused design milestone is figure and table cross-references. The design is documented in `docs/design-cross-references.md`, validation now exists for figure and table IDs plus missing-target checks, and PDF builds now use a minimal Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to numbered labels. This is still a narrow first step: figure and table numbering is only wired for PDF output, and broader cross-reference support is not implemented.
 
-Diagram rendering is now the next explicit design milestone. The design is documented in `docs/design-diagram-rendering.md`, but engine-managed Mermaid rendering is not implemented yet.
+Diagram rendering is now the next explicit design milestone. The design is documented in `docs/design-diagram-rendering.md`. The first foundation now exists for Mermaid diagram declarations, source validation, renderer-availability warnings, and fingerprinting, but engine-managed Mermaid rendering itself is not implemented yet.
 
 ## Schema Evolution Notes
 
@@ -257,7 +257,9 @@ Current behavior:
 - Cross-reference design exists in `docs/design-cross-references.md`, and validation now covers duplicate IDs, invalid IDs, and missing figure or table targets.
 - Section, appendix, and DOCX cross-reference support are not implemented.
 - An opt-in real Pandoc integration test now covers the current PDF figure/table cross-reference path when `pandoc` and `xelatex` are available.
-- Diagram rendering design now exists in `docs/design-diagram-rendering.md`, but Mermaid rendering, renderer dependency checks, and build-managed generated diagram assets are not implemented.
+- Diagram rendering design now exists in `docs/design-diagram-rendering.md`.
+- Mermaid diagram declarations, source validation, renderer-availability warnings, and source fingerprinting are now implemented.
+- Mermaid rendering and build-managed generated diagram assets are not implemented yet.
 
 ## Current Template Capabilities
 

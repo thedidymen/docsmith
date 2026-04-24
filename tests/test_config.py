@@ -243,6 +243,34 @@ def test_load_document_config_supports_structural_toc(tmp_path: Path) -> None:
     assert config.document.toc.zone == "front_matter"
 
 
+def test_load_document_config_supports_diagram_declarations(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Diagram Example",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert len(config.diagrams) == 1
+    assert config.diagrams[0].id == "starter-procesdiagram"
+    assert config.diagrams[0].type == "mermaid"
+    assert config.diagrams[0].source == "assets/diagrams/starter_procesdiagram.mmd"
+    assert config.diagrams[0].output == "assets/generated/starter_procesdiagram.png"
+    assert config.diagrams[0].format == "png"
+
+
 def test_load_document_config_rejects_generated_toc_outside_front_matter(tmp_path: Path) -> None:
     spec_path = tmp_path / "spec.yaml"
     spec_path.write_text(
@@ -259,6 +287,50 @@ def test_load_document_config_rejects_generated_toc_outside_front_matter(tmp_pat
     )
 
     with pytest.raises(ValueError, match="document.front_matter|currently supported only"):
+        load_document_config(spec_path)
+
+
+def test_load_document_config_rejects_unsupported_diagram_type(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Diagram Type Example",
+                "diagrams:",
+                "  - id: context-diagram",
+                "    type: plantuml",
+                "    source: assets/diagrams/context.puml",
+                "    output: assets/generated/context.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(Exception):
+        load_document_config(spec_path)
+
+
+def test_load_document_config_rejects_unsupported_diagram_format(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Diagram Format Example",
+                "diagrams:",
+                "  - id: context-diagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/context.mmd",
+                "    output: assets/generated/context.svg",
+                "    format: svg",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(Exception):
         load_document_config(spec_path)
 
 

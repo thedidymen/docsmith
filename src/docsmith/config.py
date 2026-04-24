@@ -171,6 +171,19 @@ class CitationsConfig(BaseModel):
     csl: str | None = None
 
 
+class DiagramConfig(BaseModel):
+    """Diagram rendering declaration."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    id: str
+    type: Literal["mermaid"]
+    source: str
+    output: str
+    format: Literal["png"]
+
+
 class OutputConfig(BaseModel):
     """Output configuration."""
 
@@ -203,6 +216,7 @@ class DocsmithConfig(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=default_metadata)
     document: DocumentConfig = Field(default_factory=DocumentConfig)
     citations: CitationsConfig = Field(default_factory=CitationsConfig)
+    diagrams: list[DiagramConfig] = Field(default_factory=list)
     output: OutputConfig = Field(default_factory=OutputConfig)
     versioning: VersioningConfig = Field(default_factory=VersioningConfig)
 

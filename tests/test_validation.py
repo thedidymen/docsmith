@@ -22,7 +22,7 @@ def test_validate_document_reports_success_for_example() -> None:
         report = validate_document(Path("examples/documents/technical_report_demo"))
 
     assert report.ok is True
-    assert len(report.checks) == 10
+    assert len(report.checks) == 12
     assert all(check.ok for check in report.checks)
 
 
@@ -145,6 +145,142 @@ def test_format_validation_report_includes_status_lines() -> None:
     assert "Validation results for" in rendered
     assert "[PASS] spec.yaml loading:" in rendered
     assert "Validation succeeded." in rendered
+
+
+def test_validate_document_reports_missing_diagram_source(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Missing Diagram Example",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is False
+    diagram_check = next(
+        check for check in report.checks if check.label == "diagram source path existence"
+    )
+    assert diagram_check.ok is False
+    assert "Diagram source file not found" in diagram_check.detail
+
+
+def test_validate_document_warns_when_mermaid_renderer_is_missing(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    diagram_dir = document_root / "assets" / "diagrams"
+    sections_dir.mkdir(parents=True)
+    diagram_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    (diagram_dir / "starter_procesdiagram.mmd").write_text("graph TD\nA-->B\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Mermaid Warning Example",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with (
+        patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]),
+        patch("docsmith.core.validation.shutil.which", return_value=None),
+    ):
+        report = validate_document(document_root)
+
+    assert report.ok is True
+    renderer_check = next(
+        check for check in report.checks if check.label == "diagram renderer availability"
+    )
+    assert renderer_check.ok is True
+    assert renderer_check.warning is True
+    assert "mmdc" in renderer_check.detail
+
+    rendered = format_validation_report(report)
+    assert "[WARN] diagram renderer availability:" in rendered
+
+
+def test_validate_document_accepts_diagram_declarations_when_mmdc_is_available(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    diagram_dir = document_root / "assets" / "diagrams"
+    sections_dir.mkdir(parents=True)
+    diagram_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "00_intro.md").write_text("# Intro\n", encoding="utf-8")
+    (diagram_dir / "starter_procesdiagram.mmd").write_text("graph TD\nA-->B\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Mermaid Available Example",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "diagrams:",
+                "  - id: starter-procesdiagram",
+                "    type: mermaid",
+                "    source: assets/diagrams/starter_procesdiagram.mmd",
+                "    output: assets/generated/starter_procesdiagram.png",
+                "    format: png",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with (
+        patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]),
+        patch("docsmith.core.validation.shutil.which", return_value="/usr/local/bin/mmdc"),
+    ):
+        report = validate_document(document_root)
+
+    assert report.ok is True
+    diagram_check = next(
+        check for check in report.checks if check.label == "diagram source path existence"
+    )
+    assert diagram_check.ok is True
+    renderer_check = next(
+        check for check in report.checks if check.label == "diagram renderer availability"
+    )
+    assert renderer_check.ok is True
+    assert renderer_check.warning is False
 
 
 def test_validate_document_reports_missing_pdf_dependencies(tmp_path: Path) -> None:

@@ -65,6 +65,18 @@ def collect_fingerprint_inputs(
     )
     inputs.extend(_template_inputs(config.project.template, document_root))
 
+    for diagram in config.diagrams:
+        diagram_source_path = resolve_document_path(diagram.source, document_root)
+        inputs.append(
+            FingerprintInput(
+                label="diagram_source",
+                path=diagram_source_path,
+                relative_key=diagram_source_path.relative_to(document_root).as_posix()
+                if diagram_source_path.is_relative_to(document_root)
+                else diagram_source_path.as_posix(),
+            )
+        )
+
     if document_has_cross_reference_authoring(document_root, config):
         filter_path = cross_reference_filter_path()
         inputs.append(
