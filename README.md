@@ -390,6 +390,41 @@ The legacy form still inserts a structural TOC at the start of `front_matter`. M
 
 This closes the main structural workaround loop for the current document workflow: metadata, zones, appendices, bibliography placement, and TOC placement are now explicit engine concepts, and TOC positioning inside front matter no longer requires consumer-side Lua reordering.
 
+## Figure And Table Cross-References
+
+Docsmith now supports a narrow first pass for figure and table cross-references in PDF builds.
+
+Authoring syntax:
+
+```md
+Zie @fig:registratieproces.
+
+![Procesdiagram van het registratieproces](assets/generated/registratieproces.png){#fig:registratieproces width=80%}
+
+| Scenario | Verwacht resultaat |
+|---|---|
+| Geldige invoer | Inschrijving wordt vastgelegd |
+
+Table: Resultaten van validatiescenario's {#tbl:validatie}
+
+Zie @tbl:validatie.
+```
+
+Current behavior:
+
+- validation rejects duplicate figure or table IDs
+- validation rejects invalid figure or table IDs
+- validation rejects references to missing figure or table IDs
+- PDF rendering resolves `@fig:...` to labels such as `Figure 1`
+- PDF rendering resolves `@tbl:...` to labels such as `Table 1`
+
+Current limitations:
+
+- this is implemented for figures and tables only
+- this is currently wired for PDF output only
+- label text is currently fixed to simple English in the rendering filter
+- section and appendix cross-references are not supported
+
 ## Example Document
 
 Docsmith includes a shared example repository layout under `examples/`:

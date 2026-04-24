@@ -2,17 +2,21 @@
 
 ## Status
 
-This document defines the proposed Docsmith engine design for automatic figure and table numbering plus cross-references.
+This document defines the Docsmith engine design for automatic figure and table numbering plus cross-references.
 
-It is a design and documentation slice only.
+Implemented today:
+
+- validation of duplicate figure or table IDs
+- validation of invalid figure or table IDs
+- validation of missing figure or table reference targets
+- minimal PDF rendering support for `@fig:...` and `@tbl:...` through an engine-owned Pandoc Lua filter
 
 Not implemented:
 
-- figure numbering
-- table numbering
-- `@fig:...` or `@tbl:...` reference resolution
-- cross-reference validation in the engine
-- extra Pandoc dependencies, filters, or renderer changes
+- section or appendix cross-references
+- DOCX cross-reference rendering
+- configurable label language
+- stricter optional warning modes such as unused IDs
 
 The purpose of this document is to make the first implementation small, explicit, and compatible with Docsmith's neutral engine role.
 
@@ -392,7 +396,7 @@ Recommended approach: Option D, the hybrid model, with these boundaries:
 - Docsmith defines the authoring syntax and validation rules
 - Docsmith validates IDs and references before rendering
 - Docsmith preserves authored source boundaries through assembly for diagnostics
-- Docsmith later passes a Docsmith-owned, lightweight Pandoc Lua filter to resolve numbering and references in output
+- Docsmith passes a Docsmith-owned, lightweight Pandoc Lua filter to resolve numbering and references in output
 - templates remain responsible for layout and styling only
 
 Why this is the best first implementation:
@@ -405,7 +409,7 @@ Why this is the best first implementation:
 
 ## Validation Model
 
-This is conceptual only for now.
+This validation model is now implemented for figures and tables.
 
 ### Rule set for first implementation
 
@@ -489,13 +493,17 @@ Not part of this first design:
 5. Is a single generic attribute-based authoring contract sufficient across future output formats, especially DOCX?
 6. Should Docsmith validate reference usage only in prose, or also in metadata and generated content if those surfaces later become referenceable?
 
-## Recommended Next Implementation Slice
+## Current Implementation Boundary
 
-The next implementation slice should stay narrow:
+The current implementation stays intentionally narrow:
 
-1. Add documentation-backed config and validation scaffolding for figure and table IDs plus `@fig:` and `@tbl:` references.
-2. Implement validation only first, without changing rendered output.
-3. Add source-aware diagnostics for duplicate IDs, invalid formats, and missing targets.
-4. Only after validation is stable, add the smallest Docsmith-owned output-stage mechanism for numbering and reference resolution.
+1. validation enforces the figure/table authoring contract
+2. assembly preserves the cross-reference syntax unchanged
+3. PDF rendering uses a Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to simple English labels such as `Figure 1` and `Table 1`
 
-This sequencing keeps the first code change coherent and avoids mixing authoring-contract design with renderer behavior in one step.
+Still out of scope:
+
+- section or appendix references
+- output-format parity beyond PDF
+- localization of reference labels
+- richer cross-reference formatting such as prefixes, suffixes, or grouped references

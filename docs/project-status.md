@@ -31,12 +31,12 @@ The engine direction is to model stable document concepts in a neutral way and l
 The next milestone is no longer basic structure, but a clearer engine authoring and rendering contract informed by real consumer usage. The immediate priorities are:
 
 - document the engine-template contract more explicitly
-- design cross-reference and automatic figure or table numbering before implementation
+- complete the first narrow figure/table cross-reference rendering path before expanding the model further
 - design diagram rendering as a first-class workflow before deciding whether it belongs in the engine or remains a consumer pre-build step
 - add stronger end-to-end rendering tests against real templates and outputs
 - consider a build manifest or machine-readable JSON output later, after the core contract is clearer
 
-The current focused design milestone is figure and table cross-references. The design is documented in `docs/design-cross-references.md`, and the first validation foundation now exists for figure and table IDs plus missing-target checks. Numbering and rendered reference resolution are not implemented yet.
+The current focused design milestone is figure and table cross-references. The design is documented in `docs/design-cross-references.md`, validation now exists for figure and table IDs plus missing-target checks, and PDF builds now use a minimal Docsmith-owned Lua filter to resolve `@fig:` and `@tbl:` references to numbered labels. This is still a narrow first step: figure and table numbering is only wired for PDF output, and broader cross-reference support is not implemented.
 
 ## Schema Evolution Notes
 
@@ -250,8 +250,9 @@ Current behavior:
 - No build manifest, artifact summary, or machine-readable CLI output exists.
 - No plugin or extension mechanism exists.
 - Mermaid or other diagram-source rendering is not implemented as an engine feature; current generated-diagram workflows live in consumer-side pre-build conventions.
-- Automatic figure or table numbering and rendered cross-references are not implemented yet.
+- Minimal figure/table cross-reference rendering now exists for PDF output through an engine-owned Pandoc Lua filter.
 - Cross-reference design exists in `docs/design-cross-references.md`, and validation now covers duplicate IDs, invalid IDs, and missing figure or table targets.
+- Section, appendix, and DOCX cross-reference support are not implemented.
 
 ## Current Template Capabilities
 
@@ -357,7 +358,7 @@ Coverage gaps:
 Ordered by likely impact:
 
 1. Document a clearer engine-template contract so metadata, zones, generated structure, and template expectations evolve without hidden coupling.
-2. Add the smallest output-stage cross-reference resolution mechanism consistent with `docs/design-cross-references.md`.
+2. Stabilize and test the current PDF-only figure/table cross-reference path against real Pandoc output.
 3. Extend cross-reference coverage only after the figure/table output path is stable, for example with future section or appendix references if they are still justified.
 4. Design diagram rendering as a first-class workflow and decide whether it belongs in the engine, a pre-build contract, or both.
 5. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.

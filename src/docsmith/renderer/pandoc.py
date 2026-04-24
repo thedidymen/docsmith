@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from docsmith.config import DocsmithConfig, document_has_structural_toc
+from docsmith.core.crossrefs import document_has_cross_reference_authoring
 from docsmith.core.paths import resolve_document_path
 from docsmith.renderer.defaults import template_defaults_path
 from docsmith.renderer.metadata import metadata_output_path
@@ -19,6 +20,24 @@ from docsmith.templates.registry import validate_template
 
 class PandocRenderError(RuntimeError):
     """Raised when Pandoc rendering fails."""
+
+
+def cross_reference_filter_path() -> Path:
+    """Return the engine-owned Lua filter used for figure/table cross-references."""
+    return Path(__file__).resolve().parent / "filters" / "figure_table_crossrefs.lua"
+
+
+def _needs_cross_reference_filter(document_root: Path, config: DocsmithConfig) -> bool:
+    """Return whether the current document should enable the cross-reference filter.
+
+    Command construction can be exercised in tests before a full document tree exists.
+    In those cases, cross-reference detection should fail closed and simply not add
+    the filter; normal validation and build flows still run against real documents.
+    """
+    try:
+        return document_has_cross_reference_authoring(document_root, config)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
 
 
 def _template_root(template: str, document_root: Path) -> Path:
@@ -72,6 +91,12 @@ def build_pandoc_command(
 
     if document_has_structural_toc(config):
         command.extend(["-M", "toc=false"])
+
+    if _needs_cross_reference_filter(document_root, config):
+        filter_path = cross_reference_filter_path()
+        if not filter_path.exists():
+            raise FileNotFoundError(f"Cross-reference Lua filter not found: {filter_path}")
+        command.extend(["--lua-filter", str(filter_path)])
 
     if config.citations.bibliography:
         bibliography_path = resolve_document_path(

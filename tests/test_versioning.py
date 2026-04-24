@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from docsmith.config import load_document_config
-from docsmith.versioning.fingerprint import compute_build_fingerprint
+from docsmith.versioning.fingerprint import collect_fingerprint_inputs, compute_build_fingerprint
 from docsmith.versioning.git import get_git_short_hash
 from docsmith.versioning.resolver import (
     build_output_filename,
@@ -232,6 +232,88 @@ def test_compute_build_fingerprint_changes_when_spec_or_template_changes(
     changed = compute_build_fingerprint(document_root, updated_config)
 
     assert changed != original
+
+
+def test_collect_fingerprint_inputs_includes_cross_reference_filter_when_used(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    template_root = document_root / "templates" / "technical_report"
+    sections_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text("template\n", encoding="utf-8")
+    (template_root / "defaults.yaml").write_text("pdf-engine: xelatex\n", encoding="utf-8")
+    (sections_dir / "10_body.md").write_text(
+        "\n".join(
+            [
+                "Zie @fig:registratieproces.",
+                "",
+                "![Procesdiagram](diagram.png){#fig:registratieproces}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Cross Reference Fingerprint Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(document_root / "spec.yaml")
+
+    inputs = collect_fingerprint_inputs(document_root, config)
+
+    assert any(
+        fingerprint_input.relative_key
+        == "docsmith/renderer/filters/figure_table_crossrefs.lua"
+        for fingerprint_input in inputs
+    )
+
+
+def test_collect_fingerprint_inputs_skips_cross_reference_filter_without_authoring(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    template_root = document_root / "templates" / "technical_report"
+    sections_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text("template\n", encoding="utf-8")
+    (template_root / "defaults.yaml").write_text("pdf-engine: xelatex\n", encoding="utf-8")
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Plain Fingerprint Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(document_root / "spec.yaml")
+
+    inputs = collect_fingerprint_inputs(document_root, config)
+
+    assert all(
+        fingerprint_input.relative_key
+        != "docsmith/renderer/filters/figure_table_crossrefs.lua"
+        for fingerprint_input in inputs
+    )
 
 
 def test_state_file_persistence_and_reload(tmp_path: Path) -> None:

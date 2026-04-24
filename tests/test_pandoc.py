@@ -9,6 +9,7 @@ from docsmith.renderer.metadata import write_runtime_metadata
 from docsmith.renderer.pandoc import (
     PandocRenderError,
     build_pandoc_command,
+    cross_reference_filter_path,
     render_pdf,
 )
 
@@ -152,6 +153,112 @@ def test_build_pandoc_command_disables_template_level_toc_for_ordered_generated_
 
     assert "-M" in command
     assert "toc=false" in command
+
+
+def test_cross_reference_filter_file_exists() -> None:
+    filter_path = cross_reference_filter_path()
+
+    assert filter_path.exists()
+    assert filter_path.name == "figure_table_crossrefs.lua"
+
+
+def test_build_pandoc_command_includes_lua_filter_when_cross_references_are_present(
+    tmp_path: Path,
+) -> None:
+    template_root = tmp_path / "templates" / "technical_report"
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text(
+        "\\documentclass{article}\n\\begin{document}\n$body$\n\\end{document}\n",
+        encoding="utf-8",
+    )
+    (template_root / "defaults.yaml").write_text(
+        "from: markdown\npdf-engine: xelatex\n",
+        encoding="utf-8",
+    )
+    sections_dir = tmp_path / "sections"
+    sections_dir.mkdir()
+    (sections_dir / "10_body.md").write_text(
+        "\n".join(
+            [
+                "Zie @fig:registratieproces.",
+                "",
+                "![Procesdiagram](assets/generated/registratieproces.png){#fig:registratieproces width=80%}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Cross Reference Command Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(spec_path)
+
+    command = build_pandoc_command(
+        Path("input.md"),
+        Path("output.pdf"),
+        document_root=tmp_path,
+        config=config,
+        template_name="templates/technical_report",
+    )
+
+    assert "--lua-filter" in command
+    assert str(cross_reference_filter_path()) in command
+
+
+def test_build_pandoc_command_skips_lua_filter_without_cross_reference_authoring(
+    tmp_path: Path,
+) -> None:
+    template_root = tmp_path / "templates" / "technical_report"
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text(
+        "\\documentclass{article}\n\\begin{document}\n$body$\n\\end{document}\n",
+        encoding="utf-8",
+    )
+    (template_root / "defaults.yaml").write_text(
+        "from: markdown\npdf-engine: xelatex\n",
+        encoding="utf-8",
+    )
+    sections_dir = tmp_path / "sections"
+    sections_dir.mkdir()
+    (sections_dir / "10_body.md").write_text("# Body\n", encoding="utf-8")
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Plain Command Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(spec_path)
+
+    command = build_pandoc_command(
+        Path("input.md"),
+        Path("output.pdf"),
+        document_root=tmp_path,
+        config=config,
+        template_name="templates/technical_report",
+    )
+
+    assert "--lua-filter" not in command
 
 
 def test_render_pdf_invokes_subprocess_with_document_local_template(tmp_path: Path) -> None:

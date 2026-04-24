@@ -44,6 +44,11 @@ class CrossReferenceScanResult:
     targets: tuple[CrossReferenceTarget, ...]
     references: tuple[CrossReferenceUsage, ...]
 
+    @property
+    def has_authoring(self) -> bool:
+        """Return whether any supported cross-reference authoring was found."""
+        return bool(self.targets or self.references)
+
 
 def _extract_attribute_id(attributes: str) -> str | None:
     """Return the first attribute ID in a Pandoc-style attribute block."""
@@ -182,3 +187,11 @@ def validate_markdown_cross_references(
         f"Validated {len(scan_result.targets)} cross-reference target(s) and "
         f"{len(scan_result.references)} reference(s)"
     )
+
+
+def document_has_cross_reference_authoring(
+    document_root: Path,
+    config: DocsmithConfig,
+) -> bool:
+    """Return whether a document uses supported figure/table cross-reference syntax."""
+    return scan_markdown_cross_references(document_root, config).has_authoring
