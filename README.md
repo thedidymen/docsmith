@@ -10,6 +10,8 @@ Docsmith is a neutral document build engine, not a template pack. Templates live
 
 The current direction is to evolve Docsmith from a PDF-first feature set into a clearer structured document build system with explicit document concepts. During the `0.x` phase, the document and config model may still evolve as those concepts are formalized, but those changes should remain documented and aligned with the implemented behavior.
 
+Consumer repositories are now also helping validate which workflows belong in the engine versus in document-local conventions. In particular, diagram-source workflows such as Mermaid generation are currently treated as consumer-side pre-build conventions, not as built-in Docsmith engine features.
+
 ## Design Principles
 
 - Markdown files are for document content, not layout control.
@@ -420,6 +422,8 @@ It demonstrates:
 - appendix handling via `<!-- APPENDIX -->`
 - visible version metadata on the generated title page
 - document-local template paths in `spec.yaml`
+
+Note: if a document repository uses Mermaid or another diagram source format, Docsmith currently expects that workflow to be handled before `docsmith build`, with the generated image asset committed or prepared by the consumer repository. Diagram rendering is not yet a core engine feature.
 
 Validate it:
 

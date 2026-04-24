@@ -10,13 +10,31 @@ At the same time, it is still an early MVP. The public story is narrower than th
 
 Docsmith has completed the first structural milestone set for the document model. Metadata, zones, appendices, bibliography placement, and table-of-contents placement are now explicit engine concepts. The most recent step in that work is an ordered zone-item model for generated structure inside zones, starting with TOC placement in front matter. The next architectural work is to tighten the authoring model so document content, metadata, templates, and engine responsibilities remain clearly separated.
 
+## Validated by consumer repository
+
+The external `docsmith-demo` consumer repository has now validated the current engine model as a clean downstream fit for:
+
+- extensible metadata
+- document zones
+- appendices
+- bibliography placement
+- ordered TOC placement
+
+That consumer work also exercises richer title-page metadata and media-oriented authoring conventions around image sizing, generated diagram assets, and table captions. Those findings are useful validation, but they are not yet proof that Docsmith should absorb those conventions directly into the engine without a clearer contract.
+
 ## Architectural Direction
 
 The engine direction is to model stable document concepts in a neutral way and let templates consume those concepts through clear contracts. That includes metadata, document structure, appendices, bibliography placement, and other layout-relevant zones that should become explicit parts of the build model over time. The engine should keep handling orchestration and reproducibility, while templates remain outside the engine and decide how those concepts are rendered.
 
 ## Next Milestone
 
-The next milestone is declarative front matter and title page support so document repositories no longer need layout-oriented workarounds in Markdown content. The current phase is still incremental: explicit structure first, then cleaner authoring contracts built on top of it.
+The next milestone is no longer basic structure, but a clearer engine authoring and rendering contract informed by real consumer usage. The immediate priorities are:
+
+- document the engine-template contract more explicitly
+- design cross-reference and automatic figure or table numbering before implementation
+- design diagram rendering as a first-class workflow before deciding whether it belongs in the engine or remains a consumer pre-build step
+- add stronger end-to-end rendering tests against real templates and outputs
+- consider a build manifest or machine-readable JSON output later, after the core contract is clearer
 
 ## Schema Evolution Notes
 
@@ -69,7 +87,7 @@ Future direction:
 
 - eliminate LaTeX from document content wherever it is being used for layout
 - replace layout-oriented Markdown hacks with metadata-driven rendering and template behavior
-- add declarative front matter and title page support as the next focused milestone
+- document and stabilize the engine-template contract before adding new media or cross-reference features
 
 ### Document discovery and assembly
 
@@ -228,6 +246,8 @@ Current behavior:
 - No clean story exists yet for first-time template authoring or custom template extension.
 - No build manifest, artifact summary, or machine-readable CLI output exists.
 - No plugin or extension mechanism exists.
+- Mermaid or other diagram-source rendering is not implemented as an engine feature; current generated-diagram workflows live in consumer-side pre-build conventions.
+- Automatic figure or table numbering and cross-references are not modeled as engine concepts yet.
 
 ## Current Template Capabilities
 
@@ -332,16 +352,16 @@ Coverage gaps:
 
 Ordered by likely impact:
 
-1. Implement actual multi-format rendering so `output.formats` is honored, starting with DOCX.
-2. Introduce a minimal structured document-zone model so concepts like body, appendix, and bibliography placement are explicit rather than purely template-driven.
-3. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
-4. Document the current config schema, CLI usage, build artifacts, and versioning behavior in the README.
-5. Add end-to-end integration tests that run real Pandoc in CI or in an opt-in test job.
-6. Make build results format-aware, returning multiple output artifacts instead of assuming one PDF.
-7. Add opt-in integration tests that build real PDFs in CI, since the current suite is mostly unit and mocked service coverage.
-8. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
-9. Decide whether `timestamp` is a real supported strategy and either finish it or remove it for now.
-10. Add a clear template contract story so document structure and template expectations evolve without hidden coupling.
+1. Document a clearer engine-template contract so metadata, zones, generated structure, and template expectations evolve without hidden coupling.
+2. Design cross-reference behavior, including figure and table numbering semantics, before implementing any engine support.
+3. Design diagram rendering as a first-class workflow and decide whether it belongs in the engine, a pre-build contract, or both.
+4. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.
+5. Add opt-in CI coverage for full render jobs so example and consumer-shaped documents are exercised beyond mocked unit paths.
+6. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
+7. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
+8. Decide whether `timestamp` is a real supported strategy and either finish it or remove it for now.
+9. Consider a build manifest or machine-readable JSON output once the core build contract is more stable.
+10. Implement actual multi-format rendering so `output.formats` is honored, starting with DOCX, after the contract and testing story are clearer.
 
 ## What Should Be Documented in the README Right Now
 
@@ -377,6 +397,7 @@ Ordered by likely impact:
 - basic end-to-end verification against a real render
 - clearer template documentation for users who want to adopt or adapt a document-local template
 - a small compatibility statement for supported Python and external tool expectations
+- a clearer statement about which media and diagram workflows are engine features versus consumer conventions
 
 ## What Should Be Postponed Until After the First Real Document Repository Is Tested
 
@@ -389,10 +410,10 @@ Ordered by likely impact:
 - highly generalized template metadata contracts
 - rich machine-readable CLI output formats
 - build caching beyond the current fingerprint/state mechanism
-- opinionated abstractions for figures, tables, or title pages that have not yet been validated against real document needs
+- opinionated abstractions for figures, tables, diagrams, or title pages until the engine-template contract and cross-reference model are designed clearly
 
 ## Overall Assessment
 
 Docsmith is in a credible pre-public-MVP state. The repository already contains a real build pipeline, validation command, and a reasonably clean internal architecture. The main risk is not lack of code structure; it is the gap between the broader product promise and the narrower set of capabilities that are actually proven today.
 
-The next step should not be adding more features indiscriminately. The highest-value move is to tighten the public contract around what already works, validate the tool against one realistic document repository, and then use that feedback to decide which abstractions are real requirements versus premature generalization.
+The next step should not be adding more features indiscriminately. The highest-value move is to tighten the public contract around what already works, incorporate the feedback now surfaced by a real consumer repository, and then use that evidence to decide which abstractions are real requirements versus premature generalization.

@@ -55,6 +55,8 @@ Architecture rules:
 - avoid engine-template coupling that only works for one example template family
 - do not introduce LaTeX into markdown documents for layout purposes
 - prefer metadata, explicit document structure, or template changes over markdown-level LaTeX layout hacks
+- new media, diagram, figure, table, or cross-reference features should be designed as explicit engine or template-contract concepts before implementation
+- avoid ad hoc renderer-specific behavior for media or cross-references unless the engine-template contract is documented clearly first
 
 Current architecture assumptions:
 - `project.template` resolves to a filesystem path, typically relative to the document root
