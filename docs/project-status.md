@@ -36,7 +36,7 @@ The next milestone is no longer basic structure, but a clearer engine authoring 
 - add stronger end-to-end rendering tests against real templates and outputs
 - consider a build manifest or machine-readable JSON output later, after the core contract is clearer
 
-The current focused design milestone is figure and table cross-references. The design is now documented in `docs/design-cross-references.md`, but no engine support has been implemented yet.
+The current focused design milestone is figure and table cross-references. The design is documented in `docs/design-cross-references.md`, and the first validation foundation now exists for figure and table IDs plus missing-target checks. Numbering and rendered reference resolution are not implemented yet.
 
 ## Schema Evolution Notes
 
@@ -250,8 +250,8 @@ Current behavior:
 - No build manifest, artifact summary, or machine-readable CLI output exists.
 - No plugin or extension mechanism exists.
 - Mermaid or other diagram-source rendering is not implemented as an engine feature; current generated-diagram workflows live in consumer-side pre-build conventions.
-- Automatic figure or table numbering and cross-references are not modeled as engine concepts yet.
-- Cross-reference design exists in `docs/design-cross-references.md`, but validation and rendering support are not implemented.
+- Automatic figure or table numbering and rendered cross-references are not implemented yet.
+- Cross-reference design exists in `docs/design-cross-references.md`, and validation now covers duplicate IDs, invalid IDs, and missing figure or table targets.
 
 ## Current Template Capabilities
 
@@ -357,8 +357,8 @@ Coverage gaps:
 Ordered by likely impact:
 
 1. Document a clearer engine-template contract so metadata, zones, generated structure, and template expectations evolve without hidden coupling.
-2. Implement the documented cross-reference validation contract for figure and table IDs plus missing-target checks, without changing rendering yet.
-3. Add the smallest output-stage cross-reference resolution mechanism consistent with `docs/design-cross-references.md`.
+2. Add the smallest output-stage cross-reference resolution mechanism consistent with `docs/design-cross-references.md`.
+3. Extend cross-reference coverage only after the figure/table output path is stable, for example with future section or appendix references if they are still justified.
 4. Design diagram rendering as a first-class workflow and decide whether it belongs in the engine, a pre-build contract, or both.
 5. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.
 6. Add opt-in CI coverage for full render jobs so example and consumer-shaped documents are exercised beyond mocked unit paths.

@@ -22,7 +22,7 @@ def test_validate_document_reports_success_for_example() -> None:
         report = validate_document(Path("examples/documents/technical_report_demo"))
 
     assert report.ok is True
-    assert len(report.checks) == 9
+    assert len(report.checks) == 10
     assert all(check.ok for check in report.checks)
 
 
@@ -513,3 +513,134 @@ def test_validate_document_rejects_invalid_generated_toc_semantics(tmp_path: Pat
     assert report.ok is False
     spec_check = next(check for check in report.checks if check.label == "spec.yaml loading")
     assert "without a title" in spec_check.detail
+
+
+def test_validate_document_accepts_captioned_media_without_cross_reference_ids(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text(
+        "\n".join(
+            [
+                "![Procesdiagram](assets/generated/registratieproces.png){width=80%}",
+                "",
+                "| Scenario | Resultaat |",
+                "|---|---|",
+                "| Geldige invoer | Vastgelegd |",
+                "",
+                "Table: Resultaten van validatiescenario's",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Captioned Media Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is True
+    crossref_check = next(
+        check for check in report.checks if check.label == "figure/table cross-reference authoring"
+    )
+    assert crossref_check.ok is True
+    assert "No figure/table cross-reference authoring detected" in crossref_check.detail
+
+
+def test_validate_document_rejects_duplicate_cross_reference_ids(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text(
+        "\n".join(
+            [
+                "![Procesdiagram A](a.png){#fig:registratieproces}",
+                "![Procesdiagram B](b.png){#fig:registratieproces}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Duplicate Cross Reference Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is False
+    crossref_check = next(
+        check for check in report.checks if check.label == "figure/table cross-reference authoring"
+    )
+    assert crossref_check.ok is False
+    assert "Duplicate cross-reference ID `fig:registratieproces`" in crossref_check.detail
+
+
+def test_validate_document_rejects_missing_cross_reference_targets(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_body.md").write_text(
+        "\n".join(
+            [
+                "Zie @fig:registratieproces.",
+                "",
+                "![Procesdiagram](a.png){#fig:ander-doel}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Missing Cross Reference Example",
+                "document:",
+                "  main_matter:",
+                "    - 10_body.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is False
+    crossref_check = next(
+        check for check in report.checks if check.label == "figure/table cross-reference authoring"
+    )
+    assert crossref_check.ok is False
+    assert "Missing cross-reference target `fig:registratieproces`" in crossref_check.detail

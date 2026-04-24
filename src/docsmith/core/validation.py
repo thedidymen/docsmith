@@ -12,6 +12,7 @@ from docsmith.config import (
     document_has_explicit_generated_toc,
     load_document_config,
 )
+from docsmith.core.crossrefs import validate_markdown_cross_references
 from docsmith.core.discovery import discover_markdown_files
 from docsmith.core.paths import resolve_document_path
 from docsmith.renderer.preflight import (
@@ -203,6 +204,11 @@ def _validate_output_directory(document_root: Path, config: DocsmithConfig) -> s
     return f"Output directory can be created at {output_dir}"
 
 
+def _validate_cross_reference_authoring(document_root: Path, config: DocsmithConfig) -> str:
+    """Validate figure/table cross-reference authoring in Markdown sources."""
+    return validate_markdown_cross_references(document_root, config)
+
+
 def validate_document(document_root: Path) -> ValidationReport:
     """Validate a document directory and return a structured report."""
     document_root = document_root.resolve()
@@ -267,6 +273,12 @@ def validate_document(document_root: Path) -> ValidationReport:
         _run_check(
             "output directory resolution/creatability",
             lambda: _validate_output_directory(document_root, config),
+        )
+    )
+    checks.append(
+        _run_check(
+            "figure/table cross-reference authoring",
+            lambda: _validate_cross_reference_authoring(document_root, config),
         )
     )
 
