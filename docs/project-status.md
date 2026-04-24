@@ -261,6 +261,7 @@ Current behavior:
 - Mermaid diagram declarations, source validation, renderer-availability warnings, source fingerprinting, and build-managed Mermaid rendering are now implemented for declared PNG outputs through `mmdc`.
 - Diagram rendering is still narrow: declared Mermaid diagrams only, PNG only, no Markdown rewriting, and no broader diagram backend model yet.
 - Mermaid CLI remains an optional build-environment dependency: documents only need `mmdc` when they actually declare Mermaid diagrams.
+- Document scaffolding design now exists in `docs/design-document-scaffolding.md`; the current neutral `docsmith init document` scaffold remains the default, and any future profile support should stay explicit and organization-neutral.
 
 ## Current Template Capabilities
 
@@ -372,9 +373,9 @@ Ordered by likely impact:
 5. Add stronger end-to-end integration tests that run real Pandoc against real templates and verify produced artifacts.
 6. Add opt-in CI coverage for full render jobs so example and consumer-shaped documents are exercised beyond mocked unit paths.
 7. Strengthen template validation to cover referenced partials and required assets, not just `template.tex` and `defaults.yaml`.
-8. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
-9. Consider a build manifest or machine-readable JSON output once the core build contract is more stable.
-10. Implement actual multi-format rendering so `output.formats` is honored, starting with DOCX, after the contract and testing story are clearer.
+8. Clarify and implement the next neutral document scaffolding step from `docs/design-document-scaffolding.md`, without turning the engine into a profile pack.
+9. Add a proper template-pack or reusable template distribution story so document repositories do not need to copy templates manually.
+10. Consider a build manifest or machine-readable JSON output once the core build contract is more stable.
 
 ## What Should Be Documented in the README Right Now
 

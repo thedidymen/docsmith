@@ -59,7 +59,9 @@ Architecture rules:
 - avoid ad hoc renderer-specific behavior for media or cross-references unless the engine-template contract is documented clearly first
 - future figure or table cross-reference work must follow `docs/design-cross-references.md` before implementation changes are made
 - future diagram rendering work must follow `docs/design-diagram-rendering.md` before implementation changes are made
+- future document scaffolding or profile work must follow `docs/design-document-scaffolding.md` before implementation changes are made
 - do not add consumer-side Mermaid or diagram workarounds in the engine; keep renderer behavior explicit, neutral, and build-managed
+- keep engine scaffolds neutral; do not turn `docsmith init` into a repository-specific or organization-specific starter generator
 
 Current architecture assumptions:
 - `project.template` resolves to a filesystem path, typically relative to the document root
