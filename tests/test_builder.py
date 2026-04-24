@@ -6,6 +6,7 @@ import pytest
 import yaml
 
 from docsmith.core.builder import build_document
+from docsmith.renderer.pandoc import build_pandoc_command, cross_reference_filter_path
 from docsmith.versioning.state import load_build_state
 
 
@@ -420,3 +421,115 @@ def test_build_document_allows_real_template_to_consume_arbitrary_metadata(
 
     assert result.output_path.exists()
     assert result.output_path.suffix == ".pdf"
+
+
+def test_build_document_runs_real_pdf_cross_reference_path_with_lua_filter(
+    tmp_path: Path,
+) -> None:
+    if shutil.which("pandoc") is None or shutil.which("xelatex") is None:
+        pytest.skip("pandoc and xelatex are required for the real cross-reference integration test")
+
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    template_root = document_root / "templates" / "crossref_probe"
+    assets_dir = document_root / "assets" / "generated"
+    sections_dir.mkdir(parents=True)
+    template_root.mkdir(parents=True)
+    assets_dir.mkdir(parents=True)
+
+    (sections_dir / "00_intro.md").write_text(
+        "\n".join(
+            [
+                "# Intro",
+                "",
+                "Zie @fig:registratieproces en @tbl:validatie.",
+                "",
+                "![Procesdiagram van het registratieproces](assets/generated/registratieproces.png){#fig:registratieproces width=40%}",
+                "",
+                "| Scenario | Verwacht resultaat |",
+                "|---|---|",
+                "| Geldige invoer | Inschrijving wordt vastgelegd |",
+                "",
+                "Table: Resultaten van validatiescenario's {#tbl:validatie}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    shutil.copyfile(
+        Path("examples/documents/authoring_guide/assets/docsmith-diagram.png"),
+        assets_dir / "registratieproces.png",
+    )
+    (template_root / "defaults.yaml").write_text(
+        "\n".join(
+            [
+                "from: markdown+link_attributes+citations+pipe_tables+table_captions",
+                "pdf-engine: xelatex",
+                "standalone: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (template_root / "template.tex").write_text(
+        "\n".join(
+            [
+                r"\documentclass{article}",
+                r"\usepackage{graphicx}",
+                r"\usepackage{longtable}",
+                r"\usepackage{booktabs}",
+                r"\usepackage{array}",
+                r"\usepackage{calc}",
+                r"\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}",
+                r"\providecommand{\pandocbounded}[1]{#1}",
+                r"\begin{document}",
+                r"$body$",
+                r"\end{document}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/crossref_probe",
+                "metadata:",
+                "  title: Real Cross Reference Integration Example",
+                "  author: Example Author",
+                "document:",
+                "  include:",
+                "    - 00_intro.md",
+                "output:",
+                "  directory: output",
+                "  basename: crossref_integration",
+                "versioning:",
+                "  strategy: semver",
+                "  initial_version: 0.1.0",
+                "  include_git_hash: false",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    captured_commands: list[list[str]] = []
+
+    def _capturing_build_pandoc_command(*args: object, **kwargs: object) -> list[str]:
+        command = build_pandoc_command(*args, **kwargs)
+        captured_commands.append(command)
+        return command
+
+    with patch(
+        "docsmith.renderer.pandoc.build_pandoc_command",
+        side_effect=_capturing_build_pandoc_command,
+    ):
+        result = build_document(document_root)
+
+    assert result.output_path.exists()
+    assert result.output_path.suffix == ".pdf"
+    assert captured_commands, "Expected the real Pandoc command to be captured"
+    command = captured_commands[-1]
+    assert "--lua-filter" in command
+    assert str(cross_reference_filter_path()) in command

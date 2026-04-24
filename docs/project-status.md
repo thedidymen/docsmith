@@ -253,6 +253,7 @@ Current behavior:
 - Minimal figure/table cross-reference rendering now exists for PDF output through an engine-owned Pandoc Lua filter.
 - Cross-reference design exists in `docs/design-cross-references.md`, and validation now covers duplicate IDs, invalid IDs, and missing figure or table targets.
 - Section, appendix, and DOCX cross-reference support are not implemented.
+- An opt-in real Pandoc integration test now covers the current PDF figure/table cross-reference path when `pandoc` and `xelatex` are available.
 
 ## Current Template Capabilities
 
