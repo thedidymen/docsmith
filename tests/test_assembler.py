@@ -289,6 +289,105 @@ def test_assemble_markdown_places_toc_in_front_matter(tmp_path: Path) -> None:
     assert content.index("# Inhoudsopgave") < content.index("# Preface") < content.index("# Body")
 
 
+def test_assemble_markdown_places_ordered_front_matter_toc_after_authored_sections(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "01_summary.md").write_text("# Summary\n", encoding="utf-8")
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Ordered TOC Assembly Example",
+                "document:",
+                "  front_matter:",
+                "    - file: 00_preface.md",
+                "    - file: 01_summary.md",
+                "    - generated: toc",
+                "      title: Inhoudsopgave",
+                "      numbered: false",
+                "      listed: true",
+                "  main_matter:",
+                "    - 10_intro.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert content.index("# Preface") < content.index("# Summary") < content.index("# Inhoudsopgave")
+    assert content.index("# Inhoudsopgave") < content.index("# Inleiding")
+    assert "{.unnumbered}" in content
+    assert "<!-- toc-config:numbered=false listed=true -->" in content
+
+
+def test_assemble_markdown_renders_unlisted_toc_semantics(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Unlisted TOC Assembly Example",
+                "document:",
+                "  front_matter:",
+                "    - file: 00_preface.md",
+                "    - generated: toc",
+                "      title: Inhoudsopgave",
+                "      numbered: false",
+                "      listed: false",
+                "  main_matter:",
+                "    - 10_intro.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "# Inhoudsopgave {.unnumbered .unlisted}" in content
+    assert "<!-- toc-config:numbered=false listed=false -->" in content
+
+
+def test_assemble_markdown_numbered_false_preserves_first_numbered_chapter_for_inleiding(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: TOC Numbering Example",
+                "document:",
+                "  front_matter:",
+                "    - generated: toc",
+                "      title: Inhoudsopgave",
+                "      numbered: false",
+                "      listed: true",
+                "  main_matter:",
+                "    - 10_intro.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    content = assemble_markdown(document_root)
+
+    assert "# Inhoudsopgave {.unnumbered}" in content
+    assert "# Inleiding" in content
+
+
 def test_assemble_markdown_keeps_backward_compatibility_without_toc_config(
     tmp_path: Path,
 ) -> None:

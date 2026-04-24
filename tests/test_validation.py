@@ -405,5 +405,111 @@ def test_validate_document_rejects_structural_toc_in_unsupported_zone(
     report = validate_document(document_root)
 
     assert report.ok is False
+    spec_check = next(check for check in report.checks if check.label == "spec.yaml loading")
+    assert "front_matter" in spec_check.detail
+
+
+def test_validate_document_accepts_ordered_front_matter_toc(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Ordered Structural TOC Example",
+                "document:",
+                "  front_matter:",
+                "    - file: 00_preface.md",
+                "    - generated: toc",
+                "      title: Inhoudsopgave",
+                "      numbered: false",
+                "      listed: true",
+                "  main_matter:",
+                "    - 10_intro.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is True
     toc_check = next(check for check in report.checks if check.label == "structural TOC placement")
-    assert "front_matter" in toc_check.detail
+    assert "ordered `document.front_matter`" in toc_check.detail
+
+
+def test_validate_document_prefers_ordered_toc_over_legacy_toc_config(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: TOC Precedence Validation Example",
+                "document:",
+                "  front_matter:",
+                "    - file: 00_preface.md",
+                "    - generated: toc",
+                "      title: Ordered Contents",
+                "  main_matter:",
+                "    - 10_intro.md",
+                "  toc:",
+                "    enabled: true",
+                "    title: Legacy Contents",
+                "    zone: front_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("docsmith.core.validation.validate_pdf_dependencies", return_value=[]):
+        report = validate_document(document_root)
+
+    assert report.ok is True
+    toc_check = next(check for check in report.checks if check.label == "structural TOC placement")
+    assert "legacy `document.toc` is ignored" in toc_check.detail
+
+
+def test_validate_document_rejects_invalid_generated_toc_semantics(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    _create_template(document_root)
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Invalid Ordered TOC Example",
+                "document:",
+                "  front_matter:",
+                "    - generated: toc",
+                "      title: \"\"",
+                "      listed: true",
+                "  main_matter:",
+                "    - 10_intro.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = validate_document(document_root)
+
+    assert report.ok is False
+    spec_check = next(check for check in report.checks if check.label == "spec.yaml loading")
+    assert "without a title" in spec_check.detail

@@ -331,28 +331,60 @@ Backward compatibility:
 
 This milestone is about bibliography placement only. Table-of-contents placement remains a future milestone.
 
-## Table Of Contents Placement
+## Ordered Generated Items In Zones
 
-TOC placement is now a first-class structural concept:
+Docsmith now supports ordered structural items inside document zones. A zone can contain:
+
+- authored Markdown files
+- generated structural items
+
+The first supported generated item type is `toc`, and it is currently supported in `document.front_matter`.
 
 ```yaml
 document:
   front_matter:
-    - 00_preface.md
+    - file: 00_preface.md
+    - file: 01_summary.md
+    - generated: toc
+      title: Inhoudsopgave
+      numbered: false
+      listed: true
+  main_matter:
+    - 10_inleiding.md
+```
+
+This makes the generated TOC a first-class ordered item in the document structure, so it can appear after authored front-matter sections without a consumer-side Lua repositioning filter.
+
+TOC semantics:
+
+- `title` defaults to `Contents`
+- `numbered` defaults to `false`
+- `listed` defaults to `true`
+
+With the default `numbered: false`, the TOC heading stays unnumbered, so the first main-matter chapter can remain chapter 1 unless you explicitly choose otherwise.
+
+Docsmith encodes these semantics directly in the assembled Markdown using Pandoc-friendly heading attributes, so templates can stay neutral and consumer repositories no longer need structural TOC reordering.
+
+Backward compatibility:
+
+- documents without any structural TOC config continue to work
+- legacy `document.toc` remains supported during transition
+- when both an ordered generated TOC item and legacy `document.toc` are present, the ordered `front_matter` item takes precedence and legacy `document.toc` is ignored
+- existing manual TOC sections still work during transition
+
+Legacy transition example:
+
+```yaml
+document:
   toc:
     enabled: true
     title: Inhoudsopgave
     zone: front_matter
 ```
 
-When enabled, Docsmith inserts the TOC block in the configured zone so a manual TOC section is no longer required. The current structural placement supports `front_matter`.
+The legacy form still inserts a structural TOC at the start of `front_matter`. Migrate to the ordered item form when you need explicit placement after authored front-matter content.
 
-Backward compatibility:
-
-- documents without `document.toc` continue to work
-- existing manual TOC sections still work during transition
-
-This closes the main structural workaround loop for the current document workflow: metadata, zones, appendices, bibliography placement, and TOC placement are now explicit engine concepts.
+This closes the main structural workaround loop for the current document workflow: metadata, zones, appendices, bibliography placement, and TOC placement are now explicit engine concepts, and TOC positioning inside front matter no longer requires consumer-side Lua reordering.
 
 ## Example Document
 

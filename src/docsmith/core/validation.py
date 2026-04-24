@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from docsmith.config import DocsmithConfig, load_document_config
+from docsmith.config import (
+    DocsmithConfig,
+    document_has_explicit_generated_toc,
+    load_document_config,
+)
 from docsmith.core.discovery import discover_markdown_files
 from docsmith.core.paths import resolve_document_path
 from docsmith.renderer.preflight import (
@@ -148,8 +152,19 @@ def _validate_bibliography_placement(config: DocsmithConfig) -> str:
 
 def _validate_toc_placement(config: DocsmithConfig) -> str:
     """Validate structural TOC placement settings."""
-    if not config.document.toc.enabled:
+    explicit_toc = document_has_explicit_generated_toc(config)
+
+    if not explicit_toc and not config.document.toc.enabled:
         return "No structural TOC placement configured"
+
+    if explicit_toc and config.document.toc.enabled:
+        return (
+            "Ordered front matter TOC item configured; "
+            "legacy `document.toc` is ignored during transition."
+        )
+
+    if explicit_toc:
+        return "Structural TOC placement enabled via ordered `document.front_matter`."
 
     if config.document.toc.zone != "front_matter":
         raise ValueError("Document TOC placement currently supports only `front_matter`.")

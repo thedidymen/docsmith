@@ -5,7 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from docsmith.config import DocsmithConfig, load_document_config
-from docsmith.core.discovery import resolve_document_structure
+from docsmith.core.discovery import (
+    ResolvedDocumentFileItem,
+    ResolvedGeneratedTocItem,
+    resolve_document_structure,
+)
 
 
 def _normalize_markdown_content(
@@ -36,10 +40,18 @@ def _render_bibliography_block(config: DocsmithConfig) -> str:
     return f"{heading}::: {{#refs}}\n:::"
 
 
-def _render_toc_block(config: DocsmithConfig) -> str:
+def _render_toc_block(item: ResolvedGeneratedTocItem) -> str:
     """Render a TOC placeholder block for the current PDF-first flow."""
-    title = config.document.toc.title.strip()
-    heading = f"# {title}\n\n" if title else ""
+    title = item.title.strip()
+    heading = ""
+    if title:
+        attributes: list[str] = []
+        if not item.numbered:
+            attributes.append(".unnumbered")
+        if not item.listed:
+            attributes.append(".unlisted")
+        attribute_text = f" {{{' '.join(attributes)}}}" if attributes else ""
+        heading = f"# {title}{attribute_text}\n\n"
     return f"{heading}```{{=latex}}\n\\tableofcontents\n```"
 
 
@@ -54,20 +66,29 @@ def assemble_markdown(
 
     assembled_parts: list[str] = []
     for zone in structure.zones:
-        if not zone.files:
-            if (
-                (structure.bibliography is None or structure.bibliography.zone != zone.name)
-                and (structure.toc is None or structure.toc.zone != zone.name)
-            ):
+        if not zone.items:
+            if structure.bibliography is None or structure.bibliography.zone != zone.name:
                 continue
         assembled_parts.append(f"<!-- zone:{zone.name} -->")
-        if structure.toc is not None and structure.toc.zone == zone.name:
-            assembled_parts.append("<!-- toc-begin -->")
-            assembled_parts.append(_render_toc_block(config))
         if zone.name == "appendices":
             assembled_parts.append("<!-- appendix-begin -->")
             assembled_parts.append("\\appendix")
-        for markdown_file in zone.files:
+        for item in zone.items:
+            if isinstance(item, ResolvedGeneratedTocItem):
+                assembled_parts.append("<!-- toc-begin -->")
+                assembled_parts.append(
+                    (
+                        f"<!-- toc-config:numbered={str(item.numbered).lower()} "
+                        f"listed={str(item.listed).lower()} -->"
+                    )
+                )
+                assembled_parts.append(_render_toc_block(item))
+                continue
+
+            if not isinstance(item, ResolvedDocumentFileItem):
+                continue
+
+            markdown_file = item.path
             relative_path = markdown_file.relative_to(document_root)
             content = _normalize_markdown_content(
                 markdown_file.read_text(encoding="utf-8"),

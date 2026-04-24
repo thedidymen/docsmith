@@ -8,7 +8,7 @@ At the same time, it is still an early MVP. The public story is narrower than th
 
 ## Current Phase
 
-Docsmith has completed the first structural milestone set for the document model. Metadata, zones, appendices, bibliography placement, and table-of-contents placement are now explicit engine concepts. The next architectural work is to tighten the authoring model so document content, metadata, templates, and engine responsibilities remain clearly separated.
+Docsmith has completed the first structural milestone set for the document model. Metadata, zones, appendices, bibliography placement, and table-of-contents placement are now explicit engine concepts. The most recent step in that work is an ordered zone-item model for generated structure inside zones, starting with TOC placement in front matter. The next architectural work is to tighten the authoring model so document content, metadata, templates, and engine responsibilities remain clearly separated.
 
 ## Architectural Direction
 
@@ -33,7 +33,9 @@ Because Docsmith is still in the `0.x` phase, config and spec evolution is accep
 - `document` now supports minimal explicit zones: `front_matter`, `main_matter`, and `back_matter`.
 - `document.appendices` now provides first-class appendix structure distinct from generic back matter.
 - `document.bibliography` now provides first-class bibliography placement distinct from hand-authored Markdown sections.
-- `document.toc` now provides first-class table-of-contents placement distinct from hand-authored front-matter sections.
+- `document.front_matter` now supports an ordered mix of authored file items and generated structural items.
+- A generated `toc` item is now a first-class ordered front-matter item with explicit `title`, `numbered`, and `listed` semantics.
+- Legacy `document.toc` remains supported during transition and resolves into the new ordered structure when no explicit generated TOC item is present.
 - Legacy `document.include` remains supported during the transition.
 - When explicit structure fields and `document.include` are present, explicit structure takes precedence.
 - Template resolution now uses filesystem paths declared in `spec.yaml`, typically relative to the document root.
@@ -48,6 +50,7 @@ Because Docsmith is still in the `0.x` phase, config and spec evolution is accep
   - first-class appendices
   - first-class bibliography placement
   - first-class table-of-contents placement
+  - ordered generated items inside zones, starting with TOC
 - The remaining gap is no longer basic structure, but the authoring model used inside Markdown sources.
 
 ## Authoring Model Issues
@@ -74,14 +77,17 @@ Future direction:
 - Explicit zone ordering is now supported via `document.front_matter`, `document.main_matter`, and `document.back_matter`.
 - Explicit appendix ordering is now supported via `document.appendices`.
 - Explicit bibliography placement is now supported via `document.bibliography`.
-- Explicit table-of-contents placement is now supported via `document.toc`.
+- Explicit table-of-contents placement is now supported via an ordered generated `toc` item in `document.front_matter`.
+- Legacy `document.toc` still works during transition, but ordered zone items take precedence when both forms are present.
 - If no include list is configured, Markdown files are discovered recursively and sorted.
 - If any explicit structure is configured, discovery resolves files in order: front matter, main matter, back matter, then appendices.
 - Assembly concatenates Markdown files into `build/combined.md`.
 - Assembly now emits explicit zone boundary comments in the intermediate combined Markdown.
 - Explicit appendices trigger a first-class appendix boundary during assembly.
 - Structural bibliography placement emits a Pandoc-native bibliography placeholder in the configured zone.
-- Structural TOC placement emits a TOC block in the configured zone and suppresses template-level auto-TOC for that document.
+- Structural TOC placement emits a TOC block at the configured ordered position inside front matter and suppresses template-level auto-TOC for that document.
+- TOC numbering and self-listing semantics are carried in the resolved structure and encoded in the assembled Markdown.
+- Consumer-side Lua TOC repositioning is no longer required after migration to the ordered front-matter item model.
 - The older appendix marker remains supported for non-migrated documents during transition.
 - Assembly inserts source boundary comments like `<!-- begin:path -->` into the combined file.
 - Resource handling is build-aware: the renderer passes Pandoc a `--resource-path` including both the build directory and the original document root so images and other assets still resolve after Markdown assembly.

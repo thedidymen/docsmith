@@ -58,7 +58,13 @@ except ModuleNotFoundError:  # pragma: no cover - exercised only in bare environ
                                 f"Invalid values for {item.name}: {invalid_values!r}. "
                                 f"Expected values from {allowed_values!r}."
                             )
-                    values[item.name] = raw_value
+                    elif hasattr(inner_type, "model_validate"):
+                        values[item.name] = [
+                            inner_type.model_validate(value) if isinstance(value, dict) else value
+                            for value in raw_value
+                        ]
+                    else:
+                        values[item.name] = raw_value
                 elif hasattr(field_type, "model_validate") and isinstance(raw_value, dict):
                     values[item.name] = field_type.model_validate(raw_value)
                 else:
@@ -109,10 +115,10 @@ class DocumentConfig(BaseModel):
 
     input_root: str = "sections"
     include: list[str] = Field(default_factory=list)
-    front_matter: list[str] = Field(default_factory=list)
-    main_matter: list[str] = Field(default_factory=list)
-    back_matter: list[str] = Field(default_factory=list)
-    appendices: list[str] = Field(default_factory=list)
+    front_matter: list["DocumentZoneItemConfig"] = Field(default_factory=list)
+    main_matter: list["DocumentZoneItemConfig"] = Field(default_factory=list)
+    back_matter: list["DocumentZoneItemConfig"] = Field(default_factory=list)
+    appendices: list["DocumentZoneItemConfig"] = Field(default_factory=list)
     bibliography: "DocumentBibliographyConfig" = Field(
         default_factory=lambda: DocumentBibliographyConfig()
     )
@@ -129,6 +135,19 @@ class DocumentBibliographyConfig(BaseModel):
     enabled: bool = False
     title: str = "Bibliography"
     zone: str = "back_matter"
+
+
+class DocumentZoneItemConfig(BaseModel):
+    """Ordered structural item inside a document zone."""
+
+    if "ConfigDict" in globals():
+        model_config = ConfigDict(extra="forbid")
+
+    file: str | None = None
+    generated: Literal["toc"] | None = None
+    title: str = "Contents"
+    numbered: bool = False
+    listed: bool = True
 
 
 class DocumentTocConfig(BaseModel):
@@ -226,6 +245,7 @@ def _simple_yaml_load(text: str) -> dict[str, Any]:
         current = stack[-1][1]
 
         if line.startswith("- "):
+            item_text = line[2:].strip()
             if not isinstance(current, list):
                 if not isinstance(stack[-2][1], dict) or pending_key is None:
                     raise ValueError("Invalid YAML structure")
@@ -234,7 +254,14 @@ def _simple_yaml_load(text: str) -> dict[str, Any]:
                 stack[-1] = (stack[-1][0], current_list)
                 current = current_list
 
-            current.append(_parse_scalar(line[2:].strip()))
+            if ": " in item_text:
+                item_key, _, item_value = item_text.partition(":")
+                item = {item_key.strip(): _parse_scalar(item_value.strip())}
+                current.append(item)
+                pending_key = item_key.strip()
+                stack.append((indent + 2, item))
+            else:
+                current.append(_parse_scalar(item_text))
             continue
 
         key, _, value = line.partition(":")
@@ -254,6 +281,93 @@ def _simple_yaml_load(text: str) -> dict[str, Any]:
         pending_key = key
 
     return root
+
+
+ZONE_NAMES = ("front_matter", "main_matter", "back_matter", "appendices")
+
+
+def _normalize_zone_items(raw_config: dict[str, Any]) -> None:
+    """Normalize zone items so authored files and generated items share one shape."""
+    document = raw_config.get("document")
+    if not isinstance(document, dict):
+        return
+
+    for zone_name in ZONE_NAMES:
+        items = document.get(zone_name)
+        if not isinstance(items, list):
+            continue
+
+        normalized_items: list[dict[str, Any]] = []
+        for item in items:
+            if isinstance(item, str):
+                normalized_items.append({"file": item})
+                continue
+            if isinstance(item, Mapping):
+                normalized_items.append(dict(item))
+                continue
+            raise TypeError(
+                f"`document.{zone_name}` items must be file paths or mappings, got {type(item).__name__}."
+            )
+
+        document[zone_name] = normalized_items
+
+
+def _validate_zone_item_config(config: DocsmithConfig) -> None:
+    """Validate mixed zone items and legacy/new TOC combinations."""
+    generated_toc_count = 0
+
+    for zone_name in ZONE_NAMES:
+        zone_items = getattr(config.document, zone_name)
+        for item in zone_items:
+            if item.file and item.generated:
+                raise ValueError(
+                    f"`document.{zone_name}` items must define either `file` or `generated`, not both."
+                )
+            if not item.file and not item.generated:
+                raise ValueError(
+                    f"`document.{zone_name}` items must define either `file` or `generated`."
+                )
+            if item.file:
+                if (
+                    item.generated
+                    or item.title != "Contents"
+                    or item.numbered is not False
+                    or item.listed is not True
+                ):
+                    raise ValueError(
+                        f"File item in `document.{zone_name}` cannot include generated TOC fields."
+                    )
+                continue
+
+            if item.generated != "toc":
+                raise ValueError(
+                    f"Unsupported generated item in `document.{zone_name}`: {item.generated!r}."
+                )
+            if zone_name != "front_matter":
+                raise ValueError(
+                    "Generated TOC items are currently supported only in `document.front_matter`."
+                )
+            if item.title.strip() == "" and (item.numbered or item.listed):
+                raise ValueError(
+                    "A generated TOC item without a title cannot be numbered or listed."
+                )
+            generated_toc_count += 1
+
+    if generated_toc_count > 1:
+        raise ValueError("Only one generated TOC item is currently supported per document.")
+
+    if config.document.toc.enabled and config.document.toc.zone != "front_matter":
+        raise ValueError("Document TOC placement currently supports only `front_matter`.")
+
+
+def document_has_explicit_generated_toc(config: DocsmithConfig) -> bool:
+    """Return whether the ordered zone model already contains an explicit TOC item."""
+    return any(item.generated == "toc" for item in config.document.front_matter)
+
+
+def document_has_structural_toc(config: DocsmithConfig) -> bool:
+    """Return whether any structural TOC should be emitted by the engine."""
+    return document_has_explicit_generated_toc(config) or config.document.toc.enabled
 
 
 def load_document_config(spec_path: Path) -> DocsmithConfig:
@@ -292,4 +406,7 @@ def load_document_config(spec_path: Path) -> DocsmithConfig:
     ):
         versioning["initial_version"] = versioning.pop("current_version")
 
-    return DocsmithConfig.model_validate(raw_config)
+    _normalize_zone_items(raw_config)
+    config = DocsmithConfig.model_validate(raw_config)
+    _validate_zone_item_config(config)
+    return config

@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from docsmith.config import DocsmithConfig
+from docsmith.config import DocsmithConfig, document_has_structural_toc
 from docsmith.core.paths import resolve_document_path
 from docsmith.renderer.defaults import template_defaults_path
 from docsmith.renderer.metadata import metadata_output_path
@@ -70,7 +70,7 @@ def build_pandoc_command(
     if metadata_file is not None:
         command.extend(["--metadata-file", str(metadata_file)])
 
-    if config.document.toc.enabled:
+    if document_has_structural_toc(config):
         command.extend(["-M", "toc=false"])
 
     if config.citations.bibliography:

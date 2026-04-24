@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from docsmith.config import load_document_config
 
 
@@ -131,9 +133,9 @@ def test_load_document_config_supports_document_zones(tmp_path: Path) -> None:
 
     config = load_document_config(spec_path)
 
-    assert config.document.front_matter == ["00_preface.md"]
-    assert config.document.main_matter == ["10_body.md"]
-    assert config.document.back_matter == ["90_notes.md"]
+    assert config.document.front_matter[0].file == "00_preface.md"
+    assert config.document.main_matter[0].file == "10_body.md"
+    assert config.document.back_matter[0].file == "90_notes.md"
 
 
 def test_load_document_config_supports_appendices(tmp_path: Path) -> None:
@@ -156,8 +158,41 @@ def test_load_document_config_supports_appendices(tmp_path: Path) -> None:
 
     config = load_document_config(spec_path)
 
-    assert config.document.main_matter == ["10_body.md"]
-    assert config.document.appendices == ["30_appendix_a.md", "31_appendix_b.md"]
+    assert config.document.main_matter[0].file == "10_body.md"
+    assert [item.file for item in config.document.appendices] == [
+        "30_appendix_a.md",
+        "31_appendix_b.md",
+    ]
+
+
+def test_load_document_config_supports_ordered_front_matter_generated_toc(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Ordered TOC Example",
+                "document:",
+                "  front_matter:",
+                "    - file: 00_preface.md",
+                "    - file: 01_summary.md",
+                "    - generated: toc",
+                "      title: Inhoudsopgave",
+                "      numbered: false",
+                "      listed: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(spec_path)
+
+    assert config.document.front_matter[0].file == "00_preface.md"
+    assert config.document.front_matter[1].file == "01_summary.md"
+    assert config.document.front_matter[2].generated == "toc"
+    assert config.document.front_matter[2].title == "Inhoudsopgave"
+    assert config.document.front_matter[2].numbered is False
+    assert config.document.front_matter[2].listed is True
 
 
 def test_load_document_config_supports_structural_bibliography(tmp_path: Path) -> None:
@@ -206,6 +241,65 @@ def test_load_document_config_supports_structural_toc(tmp_path: Path) -> None:
     assert config.document.toc.enabled is True
     assert config.document.toc.title == "Inhoudsopgave"
     assert config.document.toc.zone == "front_matter"
+
+
+def test_load_document_config_rejects_generated_toc_outside_front_matter(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Invalid Generated TOC Example",
+                "document:",
+                "  back_matter:",
+                "    - generated: toc",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="document.front_matter|currently supported only"):
+        load_document_config(spec_path)
+
+
+def test_load_document_config_rejects_unsupported_generated_item_type(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Invalid Generated Item Example",
+                "document:",
+                "  front_matter:",
+                "    - generated: index",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(Exception):
+        load_document_config(spec_path)
+
+
+def test_load_document_config_rejects_titleless_listed_toc(tmp_path: Path) -> None:
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Invalid TOC Semantics Example",
+                "document:",
+                "  front_matter:",
+                "    - generated: toc",
+                "      title: \"\"",
+                "      listed: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="without a title"):
+        load_document_config(spec_path)
 
 
 def test_load_document_config_accepts_legacy_current_version_field(tmp_path: Path) -> None:

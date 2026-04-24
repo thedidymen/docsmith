@@ -112,6 +112,48 @@ def test_build_pandoc_command_disables_template_level_toc_for_structural_toc(
     assert "toc=false" in command
 
 
+def test_build_pandoc_command_disables_template_level_toc_for_ordered_generated_toc(
+    tmp_path: Path,
+) -> None:
+    template_root = tmp_path / "templates" / "technical_report"
+    template_root.mkdir(parents=True)
+    (template_root / "template.tex").write_text(
+        "\\documentclass{article}\n\\begin{document}\n$body$\n\\end{document}\n",
+        encoding="utf-8",
+    )
+    (template_root / "defaults.yaml").write_text(
+        "from: markdown\npdf-engine: xelatex\ntoc: true\n",
+        encoding="utf-8",
+    )
+    spec_path = tmp_path / "spec.yaml"
+    spec_path.write_text(
+        "\n".join(
+            [
+                "project:",
+                "  template: templates/technical_report",
+                "metadata:",
+                "  title: Ordered TOC Command Example",
+                "document:",
+                "  front_matter:",
+                "    - generated: toc",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_document_config(spec_path)
+
+    command = build_pandoc_command(
+        Path("input.md"),
+        Path("output.pdf"),
+        document_root=tmp_path,
+        config=config,
+        template_name="templates/technical_report",
+    )
+
+    assert "-M" in command
+    assert "toc=false" in command
+
+
 def test_render_pdf_invokes_subprocess_with_document_local_template(tmp_path: Path) -> None:
     input_file = tmp_path / "combined.md"
     output_file = tmp_path / "output" / "report.pdf"

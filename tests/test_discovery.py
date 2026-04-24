@@ -340,5 +340,88 @@ def test_resolve_document_structure_includes_toc_placement(tmp_path: Path) -> No
     structure = resolve_document_structure(document_root, config)
 
     assert structure.toc is not None
+    assert structure.toc.generated == "toc"
     assert structure.toc.title == "Inhoudsopgave"
     assert structure.toc.zone == "front_matter"
+
+
+def test_resolve_document_structure_keeps_ordered_front_matter_toc_after_authored_items(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "01_summary.md").write_text("# Summary\n", encoding="utf-8")
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: Ordered TOC Structure Example",
+                "document:",
+                "  front_matter:",
+                "    - file: 00_preface.md",
+                "    - file: 01_summary.md",
+                "    - generated: toc",
+                "      title: Inhoudsopgave",
+                "      numbered: false",
+                "      listed: true",
+                "  main_matter:",
+                "    - 10_intro.md",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(document_root / "spec.yaml")
+    structure = resolve_document_structure(document_root, config)
+    front_matter = structure.zones[0]
+
+    assert front_matter.name == "front_matter"
+    assert [item.kind for item in front_matter.items] == ["file", "file", "generated"]
+    assert front_matter.files[0].name == "00_preface.md"
+    assert front_matter.files[1].name == "01_summary.md"
+    assert structure.toc is not None
+    assert structure.toc.numbered is False
+    assert structure.toc.listed is True
+
+
+def test_resolve_document_structure_prefers_ordered_toc_over_legacy_toc_config(
+    tmp_path: Path,
+) -> None:
+    document_root = tmp_path / "document"
+    sections_dir = document_root / "sections"
+    sections_dir.mkdir(parents=True)
+    (sections_dir / "00_preface.md").write_text("# Preface\n", encoding="utf-8")
+    (sections_dir / "10_intro.md").write_text("# Inleiding\n", encoding="utf-8")
+    (document_root / "spec.yaml").write_text(
+        "\n".join(
+            [
+                "metadata:",
+                "  title: TOC Precedence Example",
+                "document:",
+                "  front_matter:",
+                "    - file: 00_preface.md",
+                "    - generated: toc",
+                "      title: Ordered Contents",
+                "      numbered: true",
+                "      listed: false",
+                "  main_matter:",
+                "    - 10_intro.md",
+                "  toc:",
+                "    enabled: true",
+                "    title: Legacy Contents",
+                "    zone: front_matter",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_document_config(document_root / "spec.yaml")
+    structure = resolve_document_structure(document_root, config)
+
+    assert structure.toc is not None
+    assert structure.toc.title == "Ordered Contents"
+    assert structure.toc.numbered is True
+    assert structure.toc.listed is False
