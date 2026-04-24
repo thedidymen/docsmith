@@ -202,7 +202,8 @@ The generated `spec.yaml` uses:
 - a local relative `project.template` path
 - PDF as the only output format
 - semantic versioning with `0.1.0`
-- explicit `document.include` ordering
+- explicit document zones
+- an ordered front-matter `toc` item
 
 The scaffold is intentionally neutral. It does not bundle an engine-owned template into the document project. Create a local template pack separately and point `project.template` at it.
 
@@ -225,6 +226,7 @@ Creates a minimal PDF template scaffold with:
 - `partials/after-body.tex`
 
 This scaffold is a generic starting point for a repository-local or external template pack.
+Its `defaults.yaml` keeps template-level TOC insertion disabled so document repositories can opt into engine-level structural placement instead of inheriting an implicit template TOC.
 
 Example:
 

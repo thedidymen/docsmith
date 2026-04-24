@@ -38,6 +38,7 @@ Because Docsmith is still in the `0.x` phase, config and spec evolution is accep
 - Legacy `document.toc` remains supported during transition and resolves into the new ordered structure when no explicit generated TOC item is present.
 - Legacy `document.include` remains supported during the transition.
 - When explicit structure fields and `document.include` are present, explicit structure takes precedence.
+- Fresh `docsmith init document` scaffolds now start with explicit zones and an ordered front-matter TOC instead of legacy include-based ordering.
 - Template resolution now uses filesystem paths declared in `spec.yaml`, typically relative to the document root.
 - Backward-compatible normalization exists for both top-level `template` forms and legacy `versioning.current_version`.
 - Pydantic is used when available, with a fallback minimal validator/parser for bare environments.
@@ -89,6 +90,7 @@ Future direction:
 - TOC numbering and self-listing semantics are carried in the resolved structure and encoded in the assembled Markdown.
 - Consumer-side Lua TOC repositioning is no longer required after migration to the ordered front-matter item model.
 - The older appendix marker remains supported for non-migrated documents during transition.
+- Fresh starter scaffolds no longer rely on the appendix marker or template-level auto-TOC.
 - Assembly inserts source boundary comments like `<!-- begin:path -->` into the combined file.
 - Resource handling is build-aware: the renderer passes Pandoc a `--resource-path` including both the build directory and the original document root so images and other assets still resolve after Markdown assembly.
 

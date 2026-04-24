@@ -35,7 +35,16 @@ def test_initialize_document_scaffold_generates_loadable_spec(tmp_path: Path) ->
 
     assert config.project.slug == "neutral_project"
     assert config.project.template == "templates/default"
-    assert config.document.include == ["00_intro.md", "01_body.md", "30_appendix.md"]
+    assert config.document.include == []
+    assert config.document.front_matter[0].generated == "toc"
+    assert config.document.front_matter[0].title == "Contents"
+    assert config.document.front_matter[0].numbered is False
+    assert config.document.front_matter[0].listed is True
+    assert [item.file for item in config.document.main_matter] == [
+        "00_intro.md",
+        "01_body.md",
+    ]
+    assert [item.file for item in config.document.appendices] == ["30_appendix.md"]
     assert config.output.formats == ["pdf"]
     assert config.versioning.initial_version == "0.1.0"
 
@@ -62,6 +71,8 @@ def test_initialize_template_scaffold_creates_valid_template_root(tmp_path: Path
     validated = validate_template(".", target_dir)
 
     assert validated == target_dir.resolve()
+    defaults = (target_dir / "defaults.yaml").read_text(encoding="utf-8")
+    assert "toc: false" in defaults
 
 
 @pytest.mark.parametrize(

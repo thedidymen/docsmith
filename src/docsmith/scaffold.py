@@ -116,11 +116,16 @@ def _document_spec(slug: str) -> str:
 
         document:
           input_root: sections
-          include:
-            - 00_intro.md
-            - 01_body.md
-            - 30_appendix.md
-          appendix_marker: "<!-- APPENDIX -->"
+          front_matter:
+            - generated: toc
+              title: Contents
+              numbered: false
+              listed: true
+          main_matter:
+            - file: 00_intro.md
+            - file: 01_body.md
+          appendices:
+            - file: 30_appendix.md
 
         citations:
           bibliography: references.bib
@@ -192,8 +197,9 @@ def _section_intro() -> str:
 
         This section introduces the document scope, audience, and intent.
 
-        Use the ordered `document.include` list in `spec.yaml` to keep the build
-        sequence explicit and reviewable.
+        Use explicit `front_matter`, `main_matter`, `back_matter`, and
+        `appendices` zones in `spec.yaml` to keep the build structure
+        explicit and reviewable.
         """
     )
 
@@ -214,8 +220,6 @@ def _section_body() -> str:
 def _section_appendix() -> str:
     return dedent(
         """\
-        <!-- APPENDIX -->
-
         # Appendix
 
         Place supporting material, reference tables, or supplementary notes here.
@@ -232,8 +236,8 @@ def _document_readme(project_name: str) -> str:
 
         Included structure:
 
-        - `spec.yaml` defines document metadata, ordered section inclusion, PDF output,
-          and semantic versioning.
+        - `spec.yaml` defines document metadata, explicit document zones, a structural
+          front-matter TOC, PDF output, and semantic versioning.
         - `sections/` contains starter Markdown files for the main body and appendix.
         - `references.bib` and `csl/apa.csl` provide starter citation assets.
         - `assets/images/` is reserved for document-local figures.
@@ -360,7 +364,7 @@ def _template_defaults() -> str:
         """\
         from: markdown+raw_tex
         pdf-engine: xelatex
-        toc: true
+        toc: false
         number-sections: true
         citeproc: true
         standalone: true
