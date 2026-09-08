@@ -11,7 +11,7 @@ from docsmith.core.crossrefs import document_has_cross_reference_authoring
 from docsmith.core.discovery import discover_markdown_files
 from docsmith.core.paths import resolve_document_path
 from docsmith.renderer.diagrams import diagram_renderer_code_path
-from docsmith.renderer.pandoc import cross_reference_filter_path
+from docsmith.renderer.pandoc import cross_reference_filter_path, table_column_widths_filter_path
 from docsmith.templates.registry import validate_template
 
 
@@ -65,6 +65,15 @@ def collect_fingerprint_inputs(
         for path in discover_markdown_files(document_root, config)
     )
     inputs.extend(_template_inputs(config.project.template, document_root))
+
+    widths_filter_path = table_column_widths_filter_path()
+    inputs.append(
+        FingerprintInput(
+            label="renderer_filter",
+            path=widths_filter_path,
+            relative_key="docsmith/renderer/filters/table_column_widths.lua",
+        )
+    )
 
     for diagram in config.diagrams:
         diagram_source_path = resolve_document_path(diagram.source, document_root)

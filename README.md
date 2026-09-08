@@ -449,6 +449,30 @@ Current limitations:
 - this is currently wired for PDF output only
 - section and appendix cross-references are not supported
 
+## Table Column Widths
+
+Normal Pandoc Markdown tables can optionally declare output-independent relative
+column weights on their caption:
+
+```md
+| ID | Requirement | Status |
+|---|---|---|
+| R-01 | A requirement with considerably more descriptive text | Must |
+
+: Requirements {#tbl:requirements column-widths="15,70,15"}
+```
+
+Every value must be a positive number, and the number of values must match the
+number of columns. The values are relative weights and do not need to add up to
+100: `2,8,1,1` and `20,80,10,10` describe the same proportions. Docsmith
+normalizes them into Pandoc's native column-width representation, allowing long
+content to wrap within the available table width. Absolute units such as `cm`
+and `pt` are intentionally not accepted.
+
+The attribute is optional. Tables without `column-widths` continue through
+Pandoc unchanged. Writers that understand Pandoc column widths can use them;
+PDF output uses them to size its wrapping table columns.
+
 ## Example Document
 
 Docsmith includes a shared example repository layout under `examples/`:

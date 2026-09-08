@@ -62,6 +62,27 @@ def test_scan_markdown_cross_references_discovers_figure_table_and_references(
     ]
 
 
+def test_scan_markdown_cross_references_accepts_colon_table_caption(tmp_path: Path) -> None:
+    document_root = tmp_path / "document"
+    _create_document(
+        document_root,
+        [
+            "See @tbl:requirements.",
+            "",
+            "| ID | Requirement | Status |",
+            "|---|---|---|",
+            "| R-01 | Descriptive content | Must |",
+            "",
+            ': Requirements {#tbl:requirements column-widths="15,70,15"}',
+        ],
+    )
+    config = load_document_config(document_root / "spec.yaml")
+
+    detail = validate_markdown_cross_references(document_root, config)
+
+    assert detail == "Validated 1 cross-reference target(s) and 1 reference(s)"
+
+
 def test_validate_markdown_cross_references_accepts_caption_without_id(tmp_path: Path) -> None:
     document_root = tmp_path / "document"
     _create_document(

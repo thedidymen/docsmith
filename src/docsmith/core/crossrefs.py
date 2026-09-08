@@ -15,7 +15,7 @@ TABLE_ID_PATTERN = re.compile(rf"^tbl:{ID_NAME_PATTERN}$")
 REFERENCE_PATTERN = re.compile(r"@(?P<raw>(?:fig|tbl):[A-Za-z0-9_-]+)")
 IMAGE_WITH_ATTRIBUTES_PATTERN = re.compile(r"!\[[^\]]*]\([^)]+\)\{(?P<attrs>[^}]*)\}")
 ATTRIBUTE_ID_PATTERN = re.compile(r"#(?P<raw>[^\s}]+)")
-TABLE_CAPTION_PATTERN = re.compile(r"^Table:\s+.*\{(?P<attrs>[^}]*)\}\s*$")
+TABLE_CAPTION_PATTERN = re.compile(r"^(?:Table:\s+|:\s+).*\{(?P<attrs>[^}]*)\}\s*$")
 
 
 @dataclass(frozen=True)
@@ -68,7 +68,8 @@ def scan_markdown_cross_references(
     patterns documented in ``docs/design-cross-references.md``:
 
     - figures on a single line using Markdown image syntax plus attributes
-    - tables using a single-line ``Table: ... {#tbl:...}`` caption
+    - tables using a single-line ``: ... {#tbl:...}`` or legacy
+      ``Table: ... {#tbl:...}`` caption
     - text references using ``@fig:...`` or ``@tbl:...``
     """
     structure = resolve_document_structure(document_root, config)

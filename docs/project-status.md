@@ -46,6 +46,11 @@ Because Docsmith is still in the `0.x` phase, config and spec evolution is accep
 
 ## Current Implemented Features
 
+- Markdown tables may opt into normalized, relative column widths with the
+  writer-independent `column-widths` caption attribute. An engine-owned Lua
+  filter validates the weights and maps them to Pandoc's native table AST;
+  unannotated tables remain unchanged.
+
 ### Configuration and document model
 
 - `spec.yaml` loading and validation are implemented in `src/docsmith/config.py`.

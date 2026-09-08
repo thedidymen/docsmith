@@ -315,6 +315,11 @@ def test_collect_fingerprint_inputs_skips_cross_reference_filter_without_authori
         != "docsmith/renderer/filters/figure_table_crossrefs.lua"
         for fingerprint_input in inputs
     )
+    assert any(
+        fingerprint_input.relative_key
+        == "docsmith/renderer/filters/table_column_widths.lua"
+        for fingerprint_input in inputs
+    )
 
 
 def test_collect_fingerprint_inputs_includes_declared_diagram_sources(tmp_path: Path) -> None:

@@ -6,7 +6,11 @@ import pytest
 import yaml
 
 from docsmith.core.builder import build_document
-from docsmith.renderer.pandoc import build_pandoc_command, cross_reference_filter_path
+from docsmith.renderer.pandoc import (
+    build_pandoc_command,
+    cross_reference_filter_path,
+    table_column_widths_filter_path,
+)
 from docsmith.versioning.state import load_build_state
 
 
@@ -533,11 +537,12 @@ def test_build_document_runs_real_pdf_cross_reference_path_with_lua_filter(
                 "",
                 "![Procesdiagram van het registratieproces](assets/generated/registratieproces.png){#fig:registratieproces width=40%}",
                 "",
-                "| Scenario | Verwacht resultaat |",
-                "|---|---|",
-                "| Geldige invoer | Inschrijving wordt vastgelegd |",
+                "| ID | Requirement | MoSCoW | Imp. | Nec. | Prio. |",
+                "|---|---|---:|---:|---:|---:|",
+                "| FN-ETM-01 | Create sign-up events | Must | 5 | 5 | 25 |",
+                "| FN-ETM-07 | Configure registration opening and closing | Should | 5 | 4 | 20 |",
                 "",
-                "Table: Resultaten van validatiescenario's {#tbl:validatie}",
+                ': Prioritisation of requirements {#tbl:validatie column-widths="14,56,10,7,7,6"}',
             ]
         )
         + "\n",
@@ -620,6 +625,7 @@ def test_build_document_runs_real_pdf_cross_reference_path_with_lua_filter(
     command = captured_commands[-1]
     assert "--lua-filter" in command
     assert str(cross_reference_filter_path()) in command
+    assert str(table_column_widths_filter_path()) in command
 
 
 def test_build_document_runs_real_mermaid_rendering_path(
