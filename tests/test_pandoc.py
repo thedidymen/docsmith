@@ -1,5 +1,6 @@
 from pathlib import Path
 from subprocess import CalledProcessError
+import json
 import shutil
 import subprocess
 from unittest.mock import patch
@@ -15,6 +16,7 @@ from docsmith.renderer.pandoc import (
     build_pandoc_command,
     cross_reference_filter_path,
     render_pdf,
+    table_column_widths_filter_path,
 )
 
 
@@ -166,6 +168,13 @@ def test_cross_reference_filter_file_exists() -> None:
     assert filter_path.name == "figure_table_crossrefs.lua"
 
 
+def test_table_column_widths_filter_file_exists() -> None:
+    filter_path = table_column_widths_filter_path()
+
+    assert filter_path.exists()
+    assert filter_path.name == "table_column_widths.lua"
+
+
 def test_build_pandoc_command_includes_lua_filter_when_cross_references_are_present(
     tmp_path: Path,
 ) -> None:
@@ -221,7 +230,7 @@ def test_build_pandoc_command_includes_lua_filter_when_cross_references_are_pres
     assert str(cross_reference_filter_path()) in command
 
 
-def test_build_pandoc_command_skips_lua_filter_without_cross_reference_authoring(
+def test_build_pandoc_command_only_uses_widths_filter_without_cross_reference_authoring(
     tmp_path: Path,
 ) -> None:
     template_root = tmp_path / "templates" / "technical_report"
@@ -262,7 +271,12 @@ def test_build_pandoc_command_skips_lua_filter_without_cross_reference_authoring
         template_name="templates/technical_report",
     )
 
-    assert "--lua-filter" not in command
+    filter_paths = [
+        command[index + 1]
+        for index, value in enumerate(command)
+        if value == "--lua-filter"
+    ]
+    assert filter_paths == [str(table_column_widths_filter_path())]
 
 
 def test_cross_reference_lua_filter_uses_latex_caption_names_and_refs(tmp_path: Path) -> None:
@@ -297,6 +311,8 @@ def test_cross_reference_lua_filter_uses_latex_caption_names_and_refs(tmp_path: 
             "-t",
             "latex",
             "--lua-filter",
+            str(table_column_widths_filter_path()),
+            "--lua-filter",
             str(cross_reference_filter_path()),
         ],
         check=True,
@@ -308,6 +324,149 @@ def test_cross_reference_lua_filter_uses_latex_caption_names_and_refs(tmp_path: 
     assert "\\caption{Tab cap}\\label{tbl:test}" in result.stdout
     assert "\\figurename~\\ref{fig:test}" in result.stdout
     assert "\\tablename~\\ref{tbl:test}" in result.stdout
+
+
+def _pandoc_table_json(tmp_path: Path, markdown: str, *, filtered: bool = True) -> dict:
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc is required for the table column widths filter test")
+    input_file = tmp_path / "table.md"
+    input_file.write_text(markdown, encoding="utf-8")
+    command = [
+        "pandoc",
+        str(input_file),
+        "-f",
+        "markdown+pipe_tables+table_captions",
+        "-t",
+        "json",
+    ]
+    if filtered:
+        command.extend(["--lua-filter", str(table_column_widths_filter_path())])
+    result = subprocess.run(command, check=True, capture_output=True, text=True)
+    return json.loads(result.stdout)
+
+
+def _first_table(document: dict) -> dict:
+    return next(block for block in document["blocks"] if block["t"] == "Table")
+
+
+def test_table_without_column_widths_is_unchanged(tmp_path: Path) -> None:
+    markdown = "| A | B |\n|---|---:|\n| one | 2 |\n"
+
+    unfiltered = _pandoc_table_json(tmp_path, markdown, filtered=False)
+    filtered = _pandoc_table_json(tmp_path, markdown)
+
+    assert filtered == unfiltered
+
+
+@pytest.mark.parametrize(
+    ("raw_widths", "expected"),
+    [
+        ("20,60,20", [0.2, 0.6, 0.2]),
+        ("2,8,1,1", [1 / 6, 4 / 6, 1 / 12, 1 / 12]),
+        ("20,80,10,10", [1 / 6, 2 / 3, 1 / 12, 1 / 12]),
+    ],
+)
+def test_relative_table_column_widths_are_normalized(
+    tmp_path: Path,
+    raw_widths: str,
+    expected: list[float],
+) -> None:
+    columns = len(expected)
+    headers = " | ".join(chr(ord("A") + index) for index in range(columns))
+    markdown = (
+        f"| {headers} |\n"
+        f"| {' | '.join('---' for _ in range(columns))} |\n"
+        f"| {' | '.join('value' for _ in range(columns))} |\n\n"
+        f': Caption {{#tbl:widths column-widths="{raw_widths}"}}\n'
+    )
+
+    table = _first_table(_pandoc_table_json(tmp_path, markdown))
+    attr, caption, colspecs = table["c"][:3]
+
+    assert attr[0] == "tbl:widths"
+    assert [item for item in attr[2] if item[0] == "column-widths"] == []
+    assert caption is not None
+    assert [spec[1]["c"] for spec in colspecs] == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("raw_widths", "message"),
+    [
+        ("20,80", "expected 3 values for 3 columns, but received 2"),
+        ("20,0,80", "value 2 must be greater than zero"),
+        ("20,-1,80", "value 2 must be greater than zero"),
+        ("20,wide,80", "value 2 (`wide`) is not a finite number"),
+        ("20,,80", "value 2 (``) is not a finite number"),
+    ],
+)
+def test_invalid_table_column_widths_fail_clearly(
+    tmp_path: Path,
+    raw_widths: str,
+    message: str,
+) -> None:
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc is required for the table column widths filter test")
+    input_file = tmp_path / "invalid.md"
+    input_file.write_text(
+        "| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |\n\n"
+        f': Invalid {{#tbl:invalid column-widths="{raw_widths}"}}\n',
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "pandoc",
+            str(input_file),
+            "-f",
+            "markdown+pipe_tables+table_captions",
+            "-t",
+            "json",
+            "--lua-filter",
+            str(table_column_widths_filter_path()),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Table `tbl:invalid`: invalid `column-widths`" in result.stderr
+    assert message in result.stderr
+
+
+def test_width_table_keeps_caption_identifier_and_cross_reference(tmp_path: Path) -> None:
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc is required for the table column widths LaTeX test")
+    input_file = tmp_path / "widths.md"
+    input_file.write_text(
+        "See @tbl:requirements.\n\n"
+        "| ID | Requirement | Status |\n|---|---|---|\n"
+        "| R-01 | A considerably longer description | Must |\n\n"
+        ': Requirements {#tbl:requirements column-widths="15,70,15"}\n',
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            "pandoc",
+            str(input_file),
+            "-f",
+            "markdown+citations+pipe_tables+table_captions",
+            "-t",
+            "latex",
+            "--lua-filter",
+            str(table_column_widths_filter_path()),
+            "--lua-filter",
+            str(cross_reference_filter_path()),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "\\caption{Requirements}\\label{tbl:requirements}" in result.stdout
+    assert "\\tablename~\\ref{tbl:requirements}" in result.stdout
+    # Pandoc emits proportional p-columns; the descriptive column must dominate.
+    assert result.stdout.count(r"\real{0.7000}") >= 1
 
 
 def test_render_pdf_invokes_subprocess_with_document_local_template(tmp_path: Path) -> None:

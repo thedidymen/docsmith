@@ -27,6 +27,11 @@ def cross_reference_filter_path() -> Path:
     return Path(__file__).resolve().parent / "filters" / "figure_table_crossrefs.lua"
 
 
+def table_column_widths_filter_path() -> Path:
+    """Return the engine-owned Lua filter for relative table column widths."""
+    return Path(__file__).resolve().parent / "filters" / "table_column_widths.lua"
+
+
 def _needs_cross_reference_filter(document_root: Path, config: DocsmithConfig) -> bool:
     """Return whether the current document should enable the cross-reference filter.
 
@@ -85,6 +90,11 @@ def build_pandoc_command(
         "-o",
         str(output_file),
     ]
+
+    widths_filter_path = table_column_widths_filter_path()
+    if not widths_filter_path.exists():
+        raise FileNotFoundError(f"Table column widths Lua filter not found: {widths_filter_path}")
+    command.extend(["--lua-filter", str(widths_filter_path)])
 
     if metadata_file is not None:
         command.extend(["--metadata-file", str(metadata_file)])
